@@ -1,0 +1,39 @@
+.home {
+  padding: 1rem 0;
+}
+
+.home__welcome {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.home__welcome h2 {
+  font-size: 1.5rem;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.home__role-badge {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.home__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 480px) {
+  .home__welcome h2 {
+    font-size: 1.25rem;
+  }
+}

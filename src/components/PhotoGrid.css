@@ -1,0 +1,90 @@
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.photo-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.photo-card__image-wrapper {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.photo-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.photo-card:hover .photo-card__image {
+  transform: scale(1.05);
+}
+
+.photo-card__info {
+  padding: 1rem;
+}
+
+.photo-card__rep {
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+}
+
+.photo-card__date {
+  color: #64748b;
+  font-size: 0.85rem;
+  margin: 0 0 0.25rem 0;
+}
+
+.photo-card__store {
+  color: #3b82f6;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem 0;
+  font-weight: 500;
+}
+
+.photo-card__download {
+  width: 100%;
+  padding: 0.75rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.photo-card__download:hover {
+  background: #2563eb;
+}
+
+.photo-card__download:active {
+  background: #1d4ed8;
+}
+
+.photo-grid__empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #94a3b8;
+  background: white;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .photo-grid {
+    grid-template-columns: 1fr;
+  }
+}
