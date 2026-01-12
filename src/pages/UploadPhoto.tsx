@@ -1,51 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreRoster } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './UploadPhoto.css';
 
-const LAST_REP_KEY = 'traffic_sm_last_rep';
-const LOCAL_ROSTER_KEY = 'traffic_sm_roster_';
-
 export function UploadPhoto() {
   const { session } = useAuth();
-  const [repName, setRepName] = useState('');
-  const [customRepName, setCustomRepName] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [roster, setRoster] = useState<string[]>([]);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const storeName = session?.storeName || '';
-
-  useEffect(() => {
-    // Load last used rep name
-    const lastRep = localStorage.getItem(LAST_REP_KEY);
-    if (lastRep) setRepName(lastRep);
-
-    // If already logged in as rep, use that name
-    if (session?.repName) {
-      setRepName(session.repName);
-    }
-
-    // Load roster for dropdown
-    loadRoster();
-  }, [session]);
-
-  const loadRoster = async () => {
-    // First check localStorage for local roster
-    const localRoster = localStorage.getItem(LOCAL_ROSTER_KEY + storeName);
-    if (localRoster) {
-      setRoster(JSON.parse(localRoster));
-    } else {
-      // Load from sheet
-      const sheetRoster = await getStoreRoster(storeName);
-      setRoster(sheetRoster);
-    }
-  };
+  const mobileExpertName = session?.mobileExpertName || '';
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,31 +38,17 @@ export function UploadPhoto() {
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
-  const getSelectedRepName = () => {
-    if (repName === '__other__') return customRepName.trim();
-    return repName.trim();
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const finalRepName = getSelectedRepName();
-    if (!finalRepName) {
-      alert('Please enter or select your name');
-      return;
-    }
 
     if (!selectedFile) {
       alert('Please select a photo');
       return;
     }
 
-    // Save rep name preference
-    localStorage.setItem(LAST_REP_KEY, finalRepName);
-
     // Download the photo with metadata in filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${storeName}_${finalRepName}_${timestamp}.jpg`;
+    const filename = `${storeName}_${mobileExpertName}_${timestamp}.jpg`;
 
     // Create download link
     const link = document.createElement('a');
@@ -139,46 +93,13 @@ export function UploadPhoto() {
     <Layout title="Upload Photo" showBack>
       <div className="upload-page">
         <form onSubmit={handleSubmit} className="upload-form">
-          <div className="upload-form__store">
-            Store: <strong>{storeName}</strong>
-          </div>
-
-          <div className="upload-form__field">
-            <label htmlFor="repName">Your Name *</label>
-            {roster.length > 0 ? (
-              <>
-                <select
-                  id="repName"
-                  value={repName}
-                  onChange={(e) => setRepName(e.target.value)}
-                >
-                  <option value="">Select your name...</option>
-                  {roster.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                  <option value="__other__">Other (type name)</option>
-                </select>
-                {repName === '__other__' && (
-                  <input
-                    type="text"
-                    value={customRepName}
-                    onChange={(e) => setCustomRepName(e.target.value)}
-                    placeholder="Type your name"
-                    className="upload-form__other-input"
-                  />
-                )}
-              </>
-            ) : (
-              <input
-                id="repName"
-                type="text"
-                value={repName}
-                onChange={(e) => setRepName(e.target.value)}
-                placeholder="Enter your name"
-              />
-            )}
+          <div className="upload-form__info">
+            <div className="upload-form__store">
+              Store: <strong>{storeName}</strong>
+            </div>
+            <div className="upload-form__name">
+              Mobile Expert: <strong>{mobileExpertName}</strong>
+            </div>
           </div>
 
           <div className="upload-form__photo-section">
@@ -248,7 +169,7 @@ export function UploadPhoto() {
             type="submit"
             variant="large"
             fullWidth
-            disabled={!getSelectedRepName() || !selectedFile}
+            disabled={!selectedFile}
           >
             Save Photo
           </Button>

@@ -1,87 +1,49 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreRoster, clearCache } from '../services/sheetsService';
+import { getStoreRoster, addToRoster, removeFromRoster, clearCache } from '../services/sheetsService';
 import { APPS_SCRIPT_URL } from '../config';
 import { Layout, Button } from '../components';
 import './Roster.css';
 
-const LOCAL_ROSTER_KEY = 'traffic_sm_roster_';
-
 export function Roster() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [roster, setRoster] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  const storeName = session?.storeName || '';
+  // Get store name from URL params (for DM viewing specific store) or session
+  const urlStoreName = searchParams.get('store');
+  const storeName = urlStoreName || session?.storeName || '';
 
   useEffect(() => {
-    if (session?.role !== 'store') {
+    // Only store managers and DMs can access roster
+    if (session?.role !== 'store' && session?.role !== 'dm') {
       navigate('/');
       return;
     }
     loadRoster();
-  }, [session, navigate]);
+  }, [session, navigate, storeName]);
 
   const loadRoster = async () => {
     setLoading(true);
     try {
-      // First check localStorage for local edits
-      const localRoster = localStorage.getItem(LOCAL_ROSTER_KEY + storeName);
-      if (localRoster) {
-        setRoster(JSON.parse(localRoster));
-      } else {
-        // Otherwise load from sheet
-        const sheetRoster = await getStoreRoster(storeName);
-        setRoster(sheetRoster);
-      }
+      const sheetRoster = await getStoreRoster(storeName);
+      setRoster(sheetRoster);
     } catch (err) {
       console.error('Error loading roster:', err);
+      setError('Failed to load roster');
     } finally {
       setLoading(false);
     }
   };
 
-  const saveRoster = (newRoster: string[]) => {
-    // Save to localStorage immediately
-    localStorage.setItem(LOCAL_ROSTER_KEY + storeName, JSON.stringify(newRoster));
-    setRoster(newRoster);
-    clearCache();
-
-    // If Apps Script URL is configured, sync to Google Sheet
-    if (APPS_SCRIPT_URL) {
-      syncToSheet(newRoster);
-    }
-  };
-
-  const syncToSheet = async (rosterData: string[]) => {
-    setSaving(true);
-    try {
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'updateRoster',
-          storeName,
-          roster: rosterData,
-        }),
-      });
-      setMessage('Roster synced to sheet');
-    } catch (err) {
-      console.error('Error syncing to sheet:', err);
-      setMessage('Saved locally (sheet sync failed)');
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMessage(''), 3000);
-    }
-  };
-
-  const handleAddRep = () => {
+  const handleAddMobileExpert = async () => {
     const name = newName.trim();
     if (!name) return;
     if (roster.includes(name)) {
@@ -90,19 +52,57 @@ export function Roster() {
       return;
     }
 
-    const newRoster = [...roster, name].sort();
-    saveRoster(newRoster);
-    setNewName('');
-    setMessage('Rep added');
-    setTimeout(() => setMessage(''), 2000);
+    if (!APPS_SCRIPT_URL) {
+      setError('Google Apps Script not configured. Contact administrator.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const success = await addToRoster(storeName, name);
+      if (success) {
+        clearCache();
+        await loadRoster();
+        setNewName('');
+        setMessage('Mobile expert added');
+        setTimeout(() => setMessage(''), 2000);
+      } else {
+        setError('Failed to add mobile expert');
+      }
+    } catch (err) {
+      console.error('Error adding to roster:', err);
+      setError('Failed to add mobile expert');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleRemoveRep = (name: string) => {
-    if (confirm(`Remove "${name}" from roster?`)) {
-      const newRoster = roster.filter((r) => r !== name);
-      saveRoster(newRoster);
-      setMessage('Rep removed');
-      setTimeout(() => setMessage(''), 2000);
+  const handleRemoveMobileExpert = async (name: string) => {
+    if (!confirm(`Remove "${name}" from roster?`)) return;
+
+    if (!APPS_SCRIPT_URL) {
+      setError('Google Apps Script not configured. Contact administrator.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      const success = await removeFromRoster(storeName, name);
+      if (success) {
+        clearCache();
+        await loadRoster();
+        setMessage('Mobile expert removed');
+        setTimeout(() => setMessage(''), 2000);
+      } else {
+        setError('Failed to remove mobile expert');
+      }
+    } catch (err) {
+      console.error('Error removing from roster:', err);
+      setError('Failed to remove mobile expert');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -119,27 +119,29 @@ export function Roster() {
       <div className="roster-page">
         <h2 className="roster-store">{storeName}</h2>
 
+        {error && <div className="roster-error">{error}</div>}
         {message && <div className="roster-message">{message}</div>}
 
-        {/* Add new rep */}
+        {/* Add new mobile expert */}
         <div className="roster-add">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Enter rep name"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddRep()}
+            placeholder="Enter mobile expert name"
+            onKeyDown={(e) => e.key === 'Enter' && handleAddMobileExpert()}
+            disabled={saving}
           />
-          <Button onClick={handleAddRep} disabled={!newName.trim() || saving}>
-            Add Rep
+          <Button onClick={handleAddMobileExpert} disabled={!newName.trim() || saving}>
+            {saving ? 'Adding...' : 'Add'}
           </Button>
         </div>
 
         {/* Roster list */}
         <div className="roster-list">
-          <h3>Current Roster ({roster.length})</h3>
+          <h3>Mobile Experts ({roster.length})</h3>
           {roster.length === 0 ? (
-            <p className="roster-empty">No reps in roster. Add some above.</p>
+            <p className="roster-empty">No mobile experts in roster. Add some above.</p>
           ) : (
             <ul>
               {roster.map((name) => (
@@ -147,7 +149,8 @@ export function Roster() {
                   <span>{name}</span>
                   <button
                     className="roster-remove"
-                    onClick={() => handleRemoveRep(name)}
+                    onClick={() => handleRemoveMobileExpert(name)}
+                    disabled={saving}
                   >
                     Remove
                   </button>
@@ -158,7 +161,7 @@ export function Roster() {
         </div>
 
         <p className="roster-hint">
-          Changes are saved locally and will sync to the Google Sheet if configured.
+          Roster is stored in Google Sheets. Mobile experts can select their name when uploading photos.
         </p>
       </div>
     </Layout>

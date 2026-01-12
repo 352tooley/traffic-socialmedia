@@ -10,15 +10,25 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.upload-form__store {
+.upload-form__info {
   background: #f8fafc;
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1.5rem;
-  color: #64748b;
 }
 
-.upload-form__store strong {
+.upload-form__store,
+.upload-form__name {
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.upload-form__store {
+  margin-bottom: 0.5rem;
+}
+
+.upload-form__store strong,
+.upload-form__name strong {
   color: #1e293b;
 }
 

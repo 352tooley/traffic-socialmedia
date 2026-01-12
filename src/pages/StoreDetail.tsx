@@ -91,18 +91,18 @@ export function StoreDetail() {
         {/* Roster Section */}
         <div className="store-detail-section">
           <div className="store-detail-section-header">
-            <h2>Store Roster</h2>
+            <h2>Mobile Experts</h2>
             <button className="store-detail-manage-btn" onClick={handleManageRoster}>
               Manage Roster
             </button>
           </div>
           {roster.length === 0 ? (
-            <p className="store-detail-empty">No reps on roster yet</p>
+            <p className="store-detail-empty">No mobile experts on roster yet</p>
           ) : (
             <ul className="store-detail-roster">
-              {roster.map((rep, index) => (
+              {roster.map((name, index) => (
                 <li key={index} className="store-detail-roster-item">
-                  {rep}
+                  {name}
                 </li>
               ))}
             </ul>

@@ -5,22 +5,19 @@ import { getStoreList, getStoreRoster } from '../services/sheetsService';
 import { Button } from '../components';
 import './Login.css';
 
-type LoginMode = 'select' | 'rep' | 'store' | 'dm';
-
-const LAST_STORE_KEY = 'traffic_sm_last_store';
-const LAST_REP_KEY = 'traffic_sm_last_rep';
+type LoginMode = 'select' | 'mobile_expert' | 'store' | 'dm';
 
 export function Login() {
   const [mode, setMode] = useState<LoginMode>('select');
   const [selectedStore, setSelectedStore] = useState('');
-  const [repName, setRepName] = useState('');
+  const [mobileExpertName, setMobileExpertName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [roster, setRoster] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { loginAsRep, loginAsStore, loginAsDM, session } = useAuth();
+  const { loginAsMobileExpert, loginAsStore, loginAsDM, session } = useAuth();
 
   const stores = getStoreList();
 
@@ -31,17 +28,9 @@ export function Login() {
     }
   }, [session, navigate]);
 
-  // Load last used store and rep name
-  useEffect(() => {
-    const lastStore = localStorage.getItem(LAST_STORE_KEY);
-    const lastRep = localStorage.getItem(LAST_REP_KEY);
-    if (lastStore) setSelectedStore(lastStore);
-    if (lastRep) setRepName(lastRep);
-  }, []);
-
   // Load roster when store changes
   useEffect(() => {
-    if (selectedStore && mode === 'rep') {
+    if (selectedStore && mode === 'mobile_expert') {
       loadRoster(selectedStore);
     }
   }, [selectedStore, mode]);
@@ -59,25 +48,21 @@ export function Login() {
     }
   };
 
-  const handleRepLogin = () => {
+  const handleMobileExpertLogin = () => {
     if (!selectedStore) {
       setError('Please select a store');
       return;
     }
-    if (!repName.trim()) {
-      setError('Please enter or select your name');
+    if (!mobileExpertName) {
+      setError('Please select your name from the roster');
       return;
     }
 
-    // Save preferences
-    localStorage.setItem(LAST_STORE_KEY, selectedStore);
-    localStorage.setItem(LAST_REP_KEY, repName.trim());
-
-    loginAsRep(selectedStore, repName.trim());
+    loginAsMobileExpert(selectedStore, mobileExpertName);
     navigate('/upload');
   };
 
-  const handleStoreLogin = () => {
+  const handleStoreLogin = async () => {
     if (!selectedStore) {
       setError('Please select a store');
       return;
@@ -87,11 +72,18 @@ export function Login() {
       return;
     }
 
-    if (loginAsStore(selectedStore, password)) {
-      localStorage.setItem(LAST_STORE_KEY, selectedStore);
-      navigate('/');
-    } else {
-      setError('Incorrect password');
+    setLoading(true);
+    try {
+      const success = await loginAsStore(selectedStore, password);
+      if (success) {
+        navigate('/');
+      } else {
+        setError('Incorrect password');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,11 +106,11 @@ export function Login() {
       <p>Select how you want to sign in:</p>
 
       <div className="login-modes__buttons">
-        <Button variant="large" fullWidth onClick={() => setMode('rep')}>
-          Rep - Upload Photos
+        <Button variant="large" fullWidth onClick={() => setMode('mobile_expert')}>
+          Mobile Expert - Upload Photos
         </Button>
         <Button variant="large" fullWidth onClick={() => setMode('store')}>
-          Store Manager
+          Store Manager (RSM)
         </Button>
         <Button variant="large" fullWidth onClick={() => setMode('dm')}>
           District Manager
@@ -127,12 +119,12 @@ export function Login() {
     </div>
   );
 
-  const renderRepLogin = () => (
+  const renderMobileExpertLogin = () => (
     <div className="login-form-container">
       <button className="login-back" onClick={() => setMode('select')}>
         &larr; Back
       </button>
-      <h2>Rep Sign In</h2>
+      <h2>Mobile Expert Sign In</h2>
 
       {error && <div className="login-error">{error}</div>}
 
@@ -142,6 +134,7 @@ export function Login() {
           value={selectedStore}
           onChange={(e) => {
             setSelectedStore(e.target.value);
+            setMobileExpertName('');
             setError('');
           }}
         >
@@ -156,11 +149,13 @@ export function Login() {
 
       <div className="login-field">
         <label>Your Name</label>
-        {roster.length > 0 ? (
+        {loading ? (
+          <p className="login-loading">Loading roster...</p>
+        ) : roster.length > 0 ? (
           <select
-            value={repName}
+            value={mobileExpertName}
             onChange={(e) => {
-              setRepName(e.target.value);
+              setMobileExpertName(e.target.value);
               setError('');
             }}
           >
@@ -170,38 +165,21 @@ export function Login() {
                 {name}
               </option>
             ))}
-            <option value="__other__">Other (type name)</option>
           </select>
+        ) : selectedStore ? (
+          <p className="login-empty-roster">
+            No mobile experts on roster. Contact your RSM to add you.
+          </p>
         ) : (
-          <input
-            type="text"
-            value={repName}
-            onChange={(e) => {
-              setRepName(e.target.value);
-              setError('');
-            }}
-            placeholder="Enter your name"
-          />
-        )}
-        {repName === '__other__' && (
-          <input
-            type="text"
-            className="login-field__other"
-            onChange={(e) => {
-              setRepName(e.target.value);
-              setError('');
-            }}
-            placeholder="Type your name"
-            autoFocus
-          />
+          <p className="login-hint">Select a store first</p>
         )}
       </div>
 
       <Button
         variant="large"
         fullWidth
-        onClick={handleRepLogin}
-        disabled={loading}
+        onClick={handleMobileExpertLogin}
+        disabled={loading || !mobileExpertName}
       >
         Continue to Upload
       </Button>
@@ -248,8 +226,8 @@ export function Login() {
         />
       </div>
 
-      <Button variant="large" fullWidth onClick={handleStoreLogin}>
-        Sign In
+      <Button variant="large" fullWidth onClick={handleStoreLogin} disabled={loading}>
+        {loading ? 'Signing in...' : 'Sign In'}
       </Button>
 
       <p className="login-hint">
@@ -294,7 +272,7 @@ export function Login() {
         </div>
 
         {mode === 'select' && renderModeSelection()}
-        {mode === 'rep' && renderRepLogin()}
+        {mode === 'mobile_expert' && renderMobileExpertLogin()}
         {mode === 'store' && renderStoreLogin()}
         {mode === 'dm' && renderDMLogin()}
       </div>

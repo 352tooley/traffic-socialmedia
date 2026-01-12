@@ -9,7 +9,7 @@ export function Home() {
 
   const isDM = session?.role === 'dm';
   const isStore = session?.role === 'store';
-  const isRep = session?.role === 'rep';
+  const isMobileExpert = session?.role === 'mobile_expert';
 
   return (
     <Layout title="Home">
@@ -18,10 +18,11 @@ export function Home() {
           <h2>
             {isDM && 'District Manager'}
             {isStore && `${session?.storeName}`}
-            {isRep && `${session?.storeName} - ${session?.repName}`}
+            {isMobileExpert && `${session?.storeName} - ${session?.mobileExpertName}`}
           </h2>
           {isDM && <p className="home__role-badge">DM Access</p>}
           {isStore && <p className="home__role-badge">Store Manager</p>}
+          {isMobileExpert && <p className="home__role-badge">Mobile Expert</p>}
         </div>
 
         <div className="home__actions">

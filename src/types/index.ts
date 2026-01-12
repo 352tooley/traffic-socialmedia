@@ -1,10 +1,10 @@
-// User session types (localStorage based)
-export type UserRole = 'rep' | 'store' | 'dm';
+// User session types (Google Sheets based)
+export type UserRole = 'mobile_expert' | 'store' | 'dm';
 
 export interface UserSession {
   role: UserRole;
   storeName: string;
-  repName?: string;
+  mobileExpertName?: string;
 }
 
 // Store metrics from CSV
@@ -15,30 +15,23 @@ export interface StoreMetrics {
   submissionsPer100: number;
 }
 
-// Store roster
+// Store roster (from Google Sheet)
 export interface StoreRoster {
   storeName: string;
-  reps: string[];
+  mobileExperts: string[];
 }
 
-// Photo submission (local tracking)
+// Photo submission
 export interface Submission {
   id: string;
   storeName: string;
-  repName: string;
-  imageData: string; // base64 or blob URL
+  mobileExpertName: string;
+  imageData: string;
   timestamp: Date;
 }
 
-// Store password management
+// Store password (from Google Sheet)
 export interface StoreAuth {
   storeName: string;
   password: string;
-}
-
-// Rep performance stats
-export interface RepStats {
-  repName: string;
-  submissions: number;
-  percentOfStore: number;
 }
