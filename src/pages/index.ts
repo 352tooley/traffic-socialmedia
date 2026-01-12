@@ -5,3 +5,5 @@ export { DownloadPhotos } from './DownloadPhotos';
 export { Reporting } from './Reporting';
 export { DistrictOverview } from './DistrictOverview';
 export { StoreDetail } from './StoreDetail';
+export { Roster } from './Roster';
+export { Passwords } from './Passwords';

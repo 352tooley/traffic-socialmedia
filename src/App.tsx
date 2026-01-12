@@ -9,21 +9,19 @@ import {
   Reporting,
   DistrictOverview,
   StoreDetail,
+  Roster,
+  Passwords,
 } from './pages';
 import './App.css';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return null;
-  }
+  const { session } = useAuth();
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={user ? <Navigate to="/" replace /> : <Login />}
+        element={session ? <Navigate to="/" replace /> : <Login />}
       />
       <Route
         path="/"
@@ -58,9 +56,17 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/roster"
+        element={
+          <ProtectedRoute>
+            <Roster />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/district"
         element={
-          <ProtectedRoute requireDM>
+          <ProtectedRoute>
             <DistrictOverview />
           </ProtectedRoute>
         }
@@ -68,8 +74,16 @@ function AppRoutes() {
       <Route
         path="/store/:storeName"
         element={
-          <ProtectedRoute requireDM>
+          <ProtectedRoute>
             <StoreDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/passwords"
+        element={
+          <ProtectedRoute>
+            <Passwords />
           </ProtectedRoute>
         }
       />

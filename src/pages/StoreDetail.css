@@ -56,6 +56,58 @@
 
 .store-detail-section {
   margin-top: 0.5rem;
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.store-detail-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.store-detail-section-header h2 {
+  font-size: 1.1rem;
+  color: #1e293b;
+  margin: 0;
+}
+
+.store-detail-manage-btn {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.store-detail-manage-btn:hover {
+  background: #2563eb;
+}
+
+.store-detail-roster {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.store-detail-roster-item {
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.store-detail-roster-item:last-child {
+  margin-bottom: 0;
 }
 
 .store-detail-empty {
@@ -63,8 +115,6 @@
   font-style: italic;
   text-align: center;
   padding: 2rem;
-  background: white;
-  border-radius: 12px;
 }
 
 @media (max-width: 480px) {

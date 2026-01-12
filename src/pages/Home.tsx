@@ -4,17 +4,24 @@ import { Layout, Button } from '../components';
 import './Home.css';
 
 export function Home() {
-  const { profile } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
 
-  const isDM = profile?.role === 'dm';
+  const isDM = session?.role === 'dm';
+  const isStore = session?.role === 'store';
+  const isRep = session?.role === 'rep';
 
   return (
     <Layout title="Home">
       <div className="home">
         <div className="home__welcome">
-          <h2>Welcome{profile?.storeName ? `, ${profile.storeName}` : ''}</h2>
-          {isDM && <p className="home__role-badge">District Manager</p>}
+          <h2>
+            {isDM && 'District Manager'}
+            {isStore && `${session?.storeName}`}
+            {isRep && `${session?.storeName} - ${session?.repName}`}
+          </h2>
+          {isDM && <p className="home__role-badge">DM Access</p>}
+          {isStore && <p className="home__role-badge">Store Manager</p>}
         </div>
 
         <div className="home__actions">
@@ -33,41 +40,45 @@ export function Home() {
             Upload Photo
           </Button>
 
-          <Button
-            variant="large"
-            fullWidth
-            onClick={() => navigate('/photos')}
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            }
-          >
-            Download Photos
-          </Button>
+          {(isStore || isDM) && (
+            <>
+              <Button
+                variant="large"
+                fullWidth
+                onClick={() => navigate('/photos')}
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                }
+              >
+                Download Photos
+              </Button>
 
-          <Button
-            variant="large"
-            fullWidth
-            onClick={() => navigate('/reporting')}
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 20V10" />
-                <path d="M12 20V4" />
-                <path d="M6 20v-6" />
-              </svg>
-            }
-          >
-            Reporting
-          </Button>
+              <Button
+                variant="large"
+                fullWidth
+                onClick={() => navigate('/reporting')}
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 20V10" />
+                    <path d="M12 20V4" />
+                    <path d="M6 20v-6" />
+                  </svg>
+                }
+              >
+                Reporting
+              </Button>
+            </>
+          )}
 
-          {isDM && (
+          {isStore && (
             <Button
               variant="large"
               fullWidth
-              onClick={() => navigate('/district')}
+              onClick={() => navigate('/roster')}
               icon={
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -77,8 +88,42 @@ export function Home() {
                 </svg>
               }
             >
-              District Overview
+              Manage Roster
             </Button>
+          )}
+
+          {isDM && (
+            <>
+              <Button
+                variant="large"
+                fullWidth
+                onClick={() => navigate('/district')}
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                }
+              >
+                District Overview
+              </Button>
+
+              <Button
+                variant="large"
+                fullWidth
+                onClick={() => navigate('/passwords')}
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                }
+              >
+                Reset Store Passwords
+              </Button>
+            </>
           )}
         </div>
       </div>

@@ -10,6 +10,18 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.upload-form__store {
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: #64748b;
+}
+
+.upload-form__store strong {
+  color: #1e293b;
+}
+
 .upload-form__error {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -22,6 +34,26 @@
 
 .upload-form__field {
   margin-bottom: 1.5rem;
+}
+
+.upload-form__field select {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+  background: white;
+}
+
+.upload-form__field select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.upload-form__other-input {
+  margin-top: 0.5rem;
 }
 
 .upload-form__field label {

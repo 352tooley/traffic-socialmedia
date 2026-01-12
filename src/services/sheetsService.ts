@@ -1,16 +1,26 @@
-import { CSV_URL } from '../config';
-import type { StoreMetrics } from '../types';
+import { CSV_URL, ROSTER_CSV_URL, STORE_LIST } from '../config';
+import type { StoreMetrics, StoreRoster } from '../types';
 
 // Header names to look for (case-insensitive matching)
 const HEADER_STORE_NAME = 'Store Name';
 const HEADER_COUNT = 'Count';
 const HEADER_TRAFFIC = 'Traffic';
 
+// Cache to prevent repeated fetches
+let metricsCache: { data: StoreMetrics[]; timestamp: number } | null = null;
+let rosterCache: { data: StoreRoster[]; timestamp: number } | null = null;
+const CACHE_DURATION = 60000; // 1 minute cache
+
 /**
  * Fetches and parses the CSV from Google Sheets
- * Maps columns by header name, not index
+ * Returns only current data (deduped by store name, keeping latest/first entry)
  */
 export async function fetchStoreMetrics(): Promise<StoreMetrics[]> {
+  // Return cached data if still valid
+  if (metricsCache && Date.now() - metricsCache.timestamp < CACHE_DURATION) {
+    return metricsCache.data;
+  }
+
   try {
     const response = await fetch(CSV_URL);
     if (!response.ok) {
@@ -18,7 +28,12 @@ export async function fetchStoreMetrics(): Promise<StoreMetrics[]> {
     }
 
     const csvText = await response.text();
-    return parseCSV(csvText);
+    const metrics = parseCSV(csvText);
+
+    // Cache the results
+    metricsCache = { data: metrics, timestamp: Date.now() };
+
+    return metrics;
   } catch (error) {
     console.error('Error fetching store metrics:', error);
     throw error;
@@ -27,7 +42,7 @@ export async function fetchStoreMetrics(): Promise<StoreMetrics[]> {
 
 /**
  * Parses CSV text into StoreMetrics array
- * Handles header mapping and excludes the "Total" row
+ * Deduplicates by store name - keeps only the FIRST occurrence of each store
  */
 function parseCSV(csvText: string): StoreMetrics[] {
   const lines = csvText.trim().split('\n');
@@ -55,9 +70,10 @@ function parseCSV(csvText: string): StoreMetrics[] {
     throw new Error('CSV missing required headers: Store Name, Count, or Traffic');
   }
 
-  // Parse data rows (skip header row)
-  const metrics: StoreMetrics[] = [];
+  // Use a Map to deduplicate - first occurrence wins (current data)
+  const storeMap = new Map<string, StoreMetrics>();
 
+  // Parse data rows (skip header row)
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
 
@@ -65,20 +81,25 @@ function parseCSV(csvText: string): StoreMetrics[] {
 
     const storeName = values[storeNameIndex]?.trim() || '';
 
-    // Skip the "Total" row
+    // Skip empty rows and "Total" row
     if (storeName.toLowerCase() === 'total' || storeName === '') {
+      continue;
+    }
+
+    // Skip if we already have this store (keeps first/current entry only)
+    if (storeMap.has(storeName)) {
       continue;
     }
 
     const submissions = parseNumber(values[countIndex]);
     const traffic = parseNumber(values[trafficIndex]);
 
-    // Compute submissions per 100 (do not trust the Per 100 column)
+    // Compute submissions per 100
     const submissionsPer100 = traffic > 0
       ? Math.round((submissions / traffic) * 100 * 100) / 100
       : 0;
 
-    metrics.push({
+    storeMap.set(storeName, {
       storeName,
       submissions,
       traffic,
@@ -86,19 +107,17 @@ function parseCSV(csvText: string): StoreMetrics[] {
     });
   }
 
-  return metrics;
+  return Array.from(storeMap.values());
 }
 
 /**
  * Finds header index, case-insensitive
  */
 function findHeaderIndex(headerMap: Record<string, number>, headerName: string): number {
-  // Try exact match first
   if (headerMap[headerName] !== undefined) {
     return headerMap[headerName];
   }
 
-  // Try case-insensitive match
   const lowerName = headerName.toLowerCase();
   for (const [key, value] of Object.entries(headerMap)) {
     if (key.toLowerCase() === lowerName) {
@@ -142,7 +161,6 @@ function parseNumber(value: string | undefined): number {
     return 0;
   }
 
-  // Remove commas and other formatting
   const cleaned = value.replace(/,/g, '').trim();
   const num = parseFloat(cleaned);
 
@@ -218,4 +236,93 @@ export async function getDistrictTotals(): Promise<StoreMetrics | null> {
     console.error('Error fetching district totals:', error);
     return null;
   }
+}
+
+/**
+ * Fetches roster data from the Roster tab
+ * Format expected: Store Name, Rep Name (one row per rep)
+ */
+export async function fetchRoster(): Promise<StoreRoster[]> {
+  // Return cached data if still valid
+  if (rosterCache && Date.now() - rosterCache.timestamp < CACHE_DURATION) {
+    return rosterCache.data;
+  }
+
+  try {
+    const response = await fetch(ROSTER_CSV_URL);
+    if (!response.ok) {
+      // If roster sheet doesn't exist yet, return empty rosters for all stores
+      return STORE_LIST.map(storeName => ({ storeName, reps: [] }));
+    }
+
+    const csvText = await response.text();
+    const roster = parseRosterCSV(csvText);
+
+    // Cache the results
+    rosterCache = { data: roster, timestamp: Date.now() };
+
+    return roster;
+  } catch (error) {
+    console.error('Error fetching roster:', error);
+    // Return empty rosters on error
+    return STORE_LIST.map(storeName => ({ storeName, reps: [] }));
+  }
+}
+
+/**
+ * Parses roster CSV into StoreRoster array
+ */
+function parseRosterCSV(csvText: string): StoreRoster[] {
+  const lines = csvText.trim().split('\n');
+  const rosterMap = new Map<string, string[]>();
+
+  // Initialize all stores with empty arrays
+  STORE_LIST.forEach(store => rosterMap.set(store, []));
+
+  // Skip header row if present
+  const startIndex = lines[0]?.toLowerCase().includes('store') ? 1 : 0;
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const values = parseCSVLine(lines[i]);
+    if (values.length < 2) continue;
+
+    const storeName = values[0]?.trim();
+    const repName = values[1]?.trim();
+
+    if (storeName && repName && rosterMap.has(storeName)) {
+      const reps = rosterMap.get(storeName)!;
+      if (!reps.includes(repName)) {
+        reps.push(repName);
+      }
+    }
+  }
+
+  return Array.from(rosterMap.entries()).map(([storeName, reps]) => ({
+    storeName,
+    reps: reps.sort(),
+  }));
+}
+
+/**
+ * Gets roster for a specific store
+ */
+export async function getStoreRoster(storeName: string): Promise<string[]> {
+  const allRosters = await fetchRoster();
+  const storeRoster = allRosters.find(r => r.storeName === storeName);
+  return storeRoster?.reps || [];
+}
+
+/**
+ * Clears the cache (call after updating roster)
+ */
+export function clearCache() {
+  metricsCache = null;
+  rosterCache = null;
+}
+
+/**
+ * Get list of all stores
+ */
+export function getStoreList(): string[] {
+  return STORE_LIST;
 }

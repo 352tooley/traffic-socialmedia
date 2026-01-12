@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
@@ -11,15 +10,26 @@ interface LayoutProps {
 
 export function Layout({ children, title, showBack = false }: LayoutProps) {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { session, logout } = useAuth();
 
   const handleBack = () => {
     navigate(-1);
   };
 
-  const handleLogout = async () => {
-    await signOut();
+  const handleLogout = () => {
+    logout();
     navigate('/login');
+  };
+
+  const handleHome = () => {
+    navigate('/');
+  };
+
+  const getUserLabel = () => {
+    if (!session) return '';
+    if (session.role === 'dm') return 'DM';
+    if (session.role === 'store') return session.storeName;
+    return `${session.storeName}`;
   };
 
   return (
@@ -38,14 +48,14 @@ export function Layout({ children, title, showBack = false }: LayoutProps) {
               </svg>
             </button>
           )}
-          <h1 className="layout__title">{title}</h1>
+          <h1 className="layout__title" onClick={handleHome} style={{ cursor: 'pointer' }}>
+            {title}
+          </h1>
         </div>
         <div className="layout__header-right">
-          {profile && (
+          {session && (
             <>
-              <span className="layout__user-info">
-                {profile.role === 'dm' ? 'DM' : profile.storeName}
-              </span>
+              <span className="layout__user-info">{getUserLabel()}</span>
               <button className="layout__logout-btn" onClick={handleLogout}>
                 Logout
               </button>

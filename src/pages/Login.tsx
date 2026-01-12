@@ -1,81 +1,302 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn } from '../services/userService';
+import { useAuth } from '../contexts/AuthContext';
+import { getStoreList, getStoreRoster } from '../services/sheetsService';
 import { Button } from '../components';
 import './Login.css';
 
+type LoginMode = 'select' | 'rep' | 'store' | 'dm';
+
+const LAST_STORE_KEY = 'traffic_sm_last_store';
+const LAST_REP_KEY = 'traffic_sm_last_rep';
+
 export function Login() {
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<LoginMode>('select');
+  const [selectedStore, setSelectedStore] = useState('');
+  const [repName, setRepName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [roster, setRoster] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
+  const { loginAsRep, loginAsStore, loginAsDM, session } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const stores = getStoreList();
 
-    try {
-      await signIn(email, password);
+  // Redirect if already logged in
+  useEffect(() => {
+    if (session) {
       navigate('/');
-    } catch (err: any) {
-      console.error('Login error:', err);
-      if (err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password');
-      } else if (err.code === 'auth/user-not-found') {
-        setError('No account found with this email');
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password');
-      } else {
-        setError('Failed to sign in. Please try again.');
-      }
+    }
+  }, [session, navigate]);
+
+  // Load last used store and rep name
+  useEffect(() => {
+    const lastStore = localStorage.getItem(LAST_STORE_KEY);
+    const lastRep = localStorage.getItem(LAST_REP_KEY);
+    if (lastStore) setSelectedStore(lastStore);
+    if (lastRep) setRepName(lastRep);
+  }, []);
+
+  // Load roster when store changes
+  useEffect(() => {
+    if (selectedStore && mode === 'rep') {
+      loadRoster(selectedStore);
+    }
+  }, [selectedStore, mode]);
+
+  const loadRoster = async (storeName: string) => {
+    setLoading(true);
+    try {
+      const storeRoster = await getStoreRoster(storeName);
+      setRoster(storeRoster);
+    } catch (err) {
+      console.error('Error loading roster:', err);
+      setRoster([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRepLogin = () => {
+    if (!selectedStore) {
+      setError('Please select a store');
+      return;
+    }
+    if (!repName.trim()) {
+      setError('Please enter or select your name');
+      return;
+    }
+
+    // Save preferences
+    localStorage.setItem(LAST_STORE_KEY, selectedStore);
+    localStorage.setItem(LAST_REP_KEY, repName.trim());
+
+    loginAsRep(selectedStore, repName.trim());
+    navigate('/upload');
+  };
+
+  const handleStoreLogin = () => {
+    if (!selectedStore) {
+      setError('Please select a store');
+      return;
+    }
+    if (!password) {
+      setError('Please enter password');
+      return;
+    }
+
+    if (loginAsStore(selectedStore, password)) {
+      localStorage.setItem(LAST_STORE_KEY, selectedStore);
+      navigate('/');
+    } else {
+      setError('Incorrect password');
+    }
+  };
+
+  const handleDMLogin = () => {
+    if (!password) {
+      setError('Please enter password');
+      return;
+    }
+
+    if (loginAsDM(password)) {
+      navigate('/');
+    } else {
+      setError('Incorrect password');
+    }
+  };
+
+  const renderModeSelection = () => (
+    <div className="login-modes">
+      <h2>Welcome</h2>
+      <p>Select how you want to sign in:</p>
+
+      <div className="login-modes__buttons">
+        <Button variant="large" fullWidth onClick={() => setMode('rep')}>
+          Rep - Upload Photos
+        </Button>
+        <Button variant="large" fullWidth onClick={() => setMode('store')}>
+          Store Manager
+        </Button>
+        <Button variant="large" fullWidth onClick={() => setMode('dm')}>
+          District Manager
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderRepLogin = () => (
+    <div className="login-form-container">
+      <button className="login-back" onClick={() => setMode('select')}>
+        &larr; Back
+      </button>
+      <h2>Rep Sign In</h2>
+
+      {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>Store</label>
+        <select
+          value={selectedStore}
+          onChange={(e) => {
+            setSelectedStore(e.target.value);
+            setError('');
+          }}
+        >
+          <option value="">Select your store...</option>
+          {stores.map((store) => (
+            <option key={store} value={store}>
+              {store}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="login-field">
+        <label>Your Name</label>
+        {roster.length > 0 ? (
+          <select
+            value={repName}
+            onChange={(e) => {
+              setRepName(e.target.value);
+              setError('');
+            }}
+          >
+            <option value="">Select your name...</option>
+            {roster.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+            <option value="__other__">Other (type name)</option>
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={repName}
+            onChange={(e) => {
+              setRepName(e.target.value);
+              setError('');
+            }}
+            placeholder="Enter your name"
+          />
+        )}
+        {repName === '__other__' && (
+          <input
+            type="text"
+            className="login-field__other"
+            onChange={(e) => {
+              setRepName(e.target.value);
+              setError('');
+            }}
+            placeholder="Type your name"
+            autoFocus
+          />
+        )}
+      </div>
+
+      <Button
+        variant="large"
+        fullWidth
+        onClick={handleRepLogin}
+        disabled={loading}
+      >
+        Continue to Upload
+      </Button>
+    </div>
+  );
+
+  const renderStoreLogin = () => (
+    <div className="login-form-container">
+      <button className="login-back" onClick={() => setMode('select')}>
+        &larr; Back
+      </button>
+      <h2>Store Manager Login</h2>
+
+      {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>Store</label>
+        <select
+          value={selectedStore}
+          onChange={(e) => {
+            setSelectedStore(e.target.value);
+            setError('');
+          }}
+        >
+          <option value="">Select your store...</option>
+          {stores.map((store) => (
+            <option key={store} value={store}>
+              {store}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="login-field">
+        <label>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError('');
+          }}
+          placeholder="Enter store password"
+        />
+      </div>
+
+      <Button variant="large" fullWidth onClick={handleStoreLogin}>
+        Sign In
+      </Button>
+
+      <p className="login-hint">
+        Default password is "password". Contact DM to reset.
+      </p>
+    </div>
+  );
+
+  const renderDMLogin = () => (
+    <div className="login-form-container">
+      <button className="login-back" onClick={() => setMode('select')}>
+        &larr; Back
+      </button>
+      <h2>District Manager Login</h2>
+
+      {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError('');
+          }}
+          placeholder="Enter DM password"
+        />
+      </div>
+
+      <Button variant="large" fullWidth onClick={handleDMLogin}>
+        Sign In
+      </Button>
+    </div>
+  );
+
   return (
     <div className="login-page">
       <div className="login-card">
         <div className="login-card__header">
-          <h1 className="login-card__title">Traffic Social Media</h1>
-          <p className="login-card__subtitle">Sign in to your account</p>
+          <h1>Traffic Social Media</h1>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="login-form__error">{error}</div>}
-
-          <div className="login-form__field">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="login-form__field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-
-          <Button type="submit" variant="large" fullWidth disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
+        {mode === 'select' && renderModeSelection()}
+        {mode === 'rep' && renderRepLogin()}
+        {mode === 'store' && renderStoreLogin()}
+        {mode === 'dm' && renderDMLogin()}
       </div>
     </div>
   );

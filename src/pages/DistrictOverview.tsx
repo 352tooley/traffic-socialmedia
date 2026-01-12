@@ -8,7 +8,7 @@ import type { Column } from '../components';
 import './DistrictOverview.css';
 
 export function DistrictOverview() {
-  const { profile } = useAuth();
+  const { session } = useAuth();
   const navigate = useNavigate();
   const [stores, setStores] = useState<StoreMetrics[]>([]);
   const [districtTotals, setDistrictTotals] = useState<StoreMetrics | null>(null);
@@ -17,13 +17,13 @@ export function DistrictOverview() {
 
   useEffect(() => {
     // Redirect if not DM
-    if (profile && profile.role !== 'dm') {
+    if (session && session.role !== 'dm') {
       navigate('/');
       return;
     }
 
     loadData();
-  }, [profile, navigate]);
+  }, [session, navigate]);
 
   const loadData = async () => {
     setLoading(true);

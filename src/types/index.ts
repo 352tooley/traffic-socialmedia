@@ -1,11 +1,10 @@
-// User types
-export type UserRole = 'store' | 'dm';
+// User session types (localStorage based)
+export type UserRole = 'rep' | 'store' | 'dm';
 
-export interface UserProfile {
-  uid: string;
+export interface UserSession {
   role: UserRole;
   storeName: string;
-  email?: string;
+  repName?: string;
 }
 
 // Store metrics from CSV
@@ -16,13 +15,25 @@ export interface StoreMetrics {
   submissionsPer100: number;
 }
 
-// Submission from Firestore
+// Store roster
+export interface StoreRoster {
+  storeName: string;
+  reps: string[];
+}
+
+// Photo submission (local tracking)
 export interface Submission {
-  id?: string;
+  id: string;
   storeName: string;
   repName: string;
-  imageUrl: string;
+  imageData: string; // base64 or blob URL
   timestamp: Date;
+}
+
+// Store password management
+export interface StoreAuth {
+  storeName: string;
+  password: string;
 }
 
 // Rep performance stats
@@ -30,9 +41,4 @@ export interface RepStats {
   repName: string;
   submissions: number;
   percentOfStore: number;
-}
-
-// CSV row parsed
-export interface CSVRow {
-  [key: string]: string;
 }
