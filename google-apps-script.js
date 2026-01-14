@@ -179,11 +179,27 @@ function getPhotos(storeName) {
         continue;
       }
 
+      // Format date properly - Google Sheets may return Date objects
+      let dateStr = row[2];
+      if (dateStr instanceof Date) {
+        dateStr = Utilities.formatDate(dateStr, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+      } else if (dateStr) {
+        dateStr = String(dateStr);
+      }
+
+      // Format time properly
+      let timeStr = row[3];
+      if (timeStr instanceof Date) {
+        timeStr = Utilities.formatDate(timeStr, Session.getScriptTimeZone(), 'hh:mm a');
+      } else if (timeStr) {
+        timeStr = String(timeStr);
+      }
+
       photos.push({
         storeName: photoStoreName,
         mobileExpert: row[1],
-        date: row[2],
-        time: row[3],
+        date: dateStr,
+        time: timeStr,
         fileName: row[4],
         fileUrl: row[5],
         fileId: row[6]

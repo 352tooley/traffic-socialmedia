@@ -596,6 +596,41 @@ export interface MobileExpertStats {
 }
 
 /**
+ * Parses a date string in various formats and returns month (0-indexed) and year
+ */
+function parseDateForFiltering(dateStr: string): { month: number; year: number } | null {
+  if (!dateStr) return null;
+  
+  // Try MM/dd/yyyy format first
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length >= 3) {
+      const month = parseInt(parts[0], 10) - 1; // Convert to 0-indexed
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(month) && !isNaN(year)) {
+        return { month, year };
+      }
+    }
+  }
+  
+  // Try ISO format (2026-01-14 or 2026-01-14T00:00:00.000Z)
+  if (dateStr.includes('-')) {
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      return { month: date.getMonth(), year: date.getFullYear() };
+    }
+  }
+  
+  // Try parsing as a Date object string
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return { month: date.getMonth(), year: date.getFullYear() };
+  }
+  
+  return null;
+}
+
+/**
  * Gets upload stats for mobile experts, optionally filtered by store and current month
  */
 export async function getMobileExpertStats(storeName?: string, currentMonthOnly: boolean = true): Promise<MobileExpertStats[]> {
@@ -607,10 +642,11 @@ export async function getMobileExpertStats(storeName?: string, currentMonthOnly:
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
-        // Parse date string (MM/dd/yyyy format)
-        const [month] = photo.date.split('/').map(Number);
-        const photoYear = parseInt(photo.date.split('/')[2]);
-        return month - 1 === currentMonth && photoYear === currentYear;
+        
+        const parsed = parseDateForFiltering(photo.date);
+        if (!parsed) return false;
+        
+        return parsed.month === currentMonth && parsed.year === currentYear;
       })
     : photos;
 
