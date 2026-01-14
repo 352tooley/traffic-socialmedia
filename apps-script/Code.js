@@ -136,9 +136,12 @@ function getOrCreateFolder() {
 
 /**
  * Converts a Drive file ID to a direct image URL
+ * Using thumbnail API which works with ANYONE_WITH_LINK sharing
  */
 function getDirectImageUrl(fileId) {
-  return 'https://drive.google.com/uc?export=view&id=' + fileId;
+  // Use thumbnail API - works with shared links, doesn't require full public access
+  // sz=w1920 requests 1920px width (high quality for hero images)
+  return 'https://lh3.googleusercontent.com/d/' + fileId + '=s1920?authuser=0';
 }
 
 /**
@@ -190,8 +193,8 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
     const file = folder.createFile(blob);
     file.setDescription(`Store: ${storeName}, Mobile Expert: ${mobileExpertName}`);
 
-    // Make file publicly viewable (required for direct image URLs)
-    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+    // Make file viewable by anyone with link (works with Google thumbnail API)
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
     // Get current date/time in Central Time
     const now = new Date();
@@ -631,7 +634,7 @@ function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
     // Create file in Drive
     const file = folder.createFile(blob);
     file.setDescription(`Store: ${storeName}, Team Photo by: ${uploadedBy}`);
-    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
     // Get current date/time
     const now = new Date();
@@ -687,18 +690,12 @@ function uploadDMPhoto(photoData, fileName, uploadedBy) {
     
     file.setDescription('DM Photo by: ' + uploadedBy);
     
-    // Try multiple sharing approaches
+    // Set sharing to anyone with link (works with Google thumbnail API)
     try {
-      file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
-      Logger.log('uploadDMPhoto: Sharing set to ANYONE');
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      Logger.log('uploadDMPhoto: Sharing set to ANYONE_WITH_LINK');
     } catch (shareError) {
-      Logger.log('uploadDMPhoto: Error setting ANYONE sharing: ' + shareError.toString());
-      try {
-        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        Logger.log('uploadDMPhoto: Fallback to ANYONE_WITH_LINK');
-      } catch (shareError2) {
-        Logger.log('uploadDMPhoto: Both sharing methods failed: ' + shareError2.toString());
-      }
+      Logger.log('uploadDMPhoto: Error setting sharing: ' + shareError.toString());
     }
 
     // Get current date/time
