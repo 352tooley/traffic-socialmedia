@@ -239,23 +239,46 @@ function getPhotos(data) {
     // Skip header row
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
+      if (!row[0]) continue; // Skip empty rows
       
-      // Check if we have district column (12 columns) or old format (11 columns)
-      // Structure: District, Store, ME, Date, Time, FileName, FileURL, FileID, deleted, featuredStatus, featuredBy, photoType
-      const hasDistrict = row.length >= 12;
+      // Detect format by checking if column B looks like a timestamp (Date object or contains time)
+      // Format A (with timestamp): District, Timestamp, Store, ME, Date, Time, FileName, FileURL, FileID...
+      // Format B (no timestamp): District, Store, ME, Date, Time, FileName, FileURL, FileID...
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
       
-      const district = hasDistrict ? row[0] : 'West';
-      const store = hasDistrict ? row[1] : row[0];
-      const mobileExpert = hasDistrict ? row[2] : row[1];
-      const date = hasDistrict ? row[3] : row[2];
-      const time = hasDistrict ? row[4] : row[3];
-      const fileName = hasDistrict ? row[5] : row[4];
-      const fileUrl = hasDistrict ? row[6] : row[5];
-      const fileId = hasDistrict ? row[7] : row[6];
-      const deleted = hasDistrict ? row[8] : row[7];
-      const featuredStatus = hasDistrict ? row[9] : row[8];
-      const featuredBy = hasDistrict ? row[10] : row[9];
-      const photoType = hasDistrict ? row[11] : row[10];
+      let district, store, mobileExpert, date, time, fileName, fileUrl, fileId, deleted, featuredStatus, featuredBy, photoType;
+      
+      if (col1IsTimestamp) {
+        // Format A: Has timestamp column
+        district = row[0] || 'West';
+        // row[1] is timestamp (skip it)
+        store = row[2];
+        mobileExpert = row[3];
+        date = row[4];
+        time = row[5];
+        fileName = row[6];
+        fileUrl = row[7];
+        fileId = row[8];
+        deleted = row[9];
+        featuredStatus = row[10];
+        featuredBy = row[11];
+        photoType = row[12];
+      } else {
+        // Format B: No timestamp column
+        district = row[0] || 'West';
+        store = row[1];
+        mobileExpert = row[2];
+        date = row[3];
+        time = row[4];
+        fileName = row[5];
+        fileUrl = row[6];
+        fileId = row[7];
+        deleted = row[8];
+        featuredStatus = row[9];
+        featuredBy = row[10];
+        photoType = row[11];
+      }
 
       // Filter by store if requested
       if (storeName && store !== storeName) continue;
@@ -462,12 +485,18 @@ function deletePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I)
-      const hasDistrict = row.length >= 12;
-      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District, Column G (index 6) without
+      if (!row[0]) continue;
+      
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      // FileID position: Format A (with timestamp): index 8, Format B (no timestamp): index 7
+      const rowFileId = col1IsTimestamp ? row[8] : row[7];
 
       if (rowFileId === fileId) {
-        const deletedCol = hasDistrict ? 9 : 8; // Column I (1-indexed: 9) with District, Column H (8) without
+        // deleted column: Format A: index 9 (col J), Format B: index 8 (col I)
+        const deletedCol = col1IsTimestamp ? 10 : 9; // 1-indexed
         sheet.getRange(i + 1, deletedCol).setValue(true);
         return respond(true, 'Photo deleted');
       }
@@ -492,13 +521,19 @@ function featurePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K)
-      const hasDistrict = row.length >= 12;
-      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
+      if (!row[0]) continue;
+      
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      const rowFileId = col1IsTimestamp ? row[8] : row[7];
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
-        const byCol = hasDistrict ? 11 : 10; // Column K (1-indexed: 11) with District
+        // featuredStatus: Format A: col 11 (K), Format B: col 10 (J)
+        // featuredBy: Format A: col 12 (L), Format B: col 11 (K)
+        const statusCol = col1IsTimestamp ? 11 : 10; // 1-indexed
+        const byCol = col1IsTimestamp ? 12 : 11; // 1-indexed
         
         sheet.getRange(i + 1, statusCol).setValue('pending');
         sheet.getRange(i + 1, byCol).setValue(featuredBy);
@@ -524,12 +559,16 @@ function approvePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
-      const hasDistrict = row.length >= 12;
-      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
+      if (!row[0]) continue;
+      
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      const rowFileId = col1IsTimestamp ? row[8] : row[7];
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
+        const statusCol = col1IsTimestamp ? 11 : 10; // 1-indexed
         sheet.getRange(i + 1, statusCol).setValue('approved');
         return respond(true, 'Photo approved');
       }
@@ -553,12 +592,16 @@ function rejectPhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
-      const hasDistrict = row.length >= 12;
-      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
+      if (!row[0]) continue;
+      
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      const rowFileId = col1IsTimestamp ? row[8] : row[7];
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
+        const statusCol = col1IsTimestamp ? 11 : 10; // 1-indexed
         sheet.getRange(i + 1, statusCol).setValue('rejected');
         return respond(true, 'Photo rejected');
       }
@@ -582,12 +625,16 @@ function unapprovePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
-      const hasDistrict = row.length >= 12;
-      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
+      if (!row[0]) continue;
+      
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      const rowFileId = col1IsTimestamp ? row[8] : row[7];
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
+        const statusCol = col1IsTimestamp ? 11 : 10; // 1-indexed
         sheet.getRange(i + 1, statusCol).setValue('');
         return respond(true, 'Photo unapproved');
       }
@@ -610,21 +657,43 @@ function getPendingPhotos() {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K), photoType(L)
-      const hasDistrict = row.length >= 12;
+      if (!row[0]) continue;
       
-      const district = hasDistrict ? row[0] : 'West';
-      const store = hasDistrict ? row[1] : row[0];
-      const mobileExpert = hasDistrict ? row[2] : row[1];
-      const date = hasDistrict ? row[3] : row[2];
-      const time = hasDistrict ? row[4] : row[3];
-      const fileName = hasDistrict ? row[5] : row[4];
-      const fileUrl = hasDistrict ? row[6] : row[5];
-      const fileId = hasDistrict ? row[7] : row[6];
-      const deleted = hasDistrict ? row[8] : row[7];
-      const featuredStatus = hasDistrict ? row[9] : row[8];
-      const featuredBy = hasDistrict ? row[10] : row[9];
-      const photoType = hasDistrict ? row[11] : row[10];
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      let district, store, mobileExpert, date, time, fileName, fileUrl, fileId, deleted, featuredStatus, featuredBy, photoType;
+      
+      if (col1IsTimestamp) {
+        // Format A: Has timestamp column
+        district = row[0] || 'West';
+        store = row[2];
+        mobileExpert = row[3];
+        date = row[4];
+        time = row[5];
+        fileName = row[6];
+        fileUrl = row[7];
+        fileId = row[8];
+        deleted = row[9];
+        featuredStatus = row[10];
+        featuredBy = row[11];
+        photoType = row[12];
+      } else {
+        // Format B: No timestamp column
+        district = row[0] || 'West';
+        store = row[1];
+        mobileExpert = row[2];
+        date = row[3];
+        time = row[4];
+        fileName = row[5];
+        fileUrl = row[6];
+        fileId = row[7];
+        deleted = row[8];
+        featuredStatus = row[9];
+        featuredBy = row[10];
+        photoType = row[11];
+      }
 
       if (featuredStatus === 'pending' && deleted !== true) {
         photos.push({
@@ -661,21 +730,43 @@ function getApprovedPhotos() {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K), photoType(L)
-      const hasDistrict = row.length >= 12;
+      if (!row[0]) continue;
       
-      const district = hasDistrict ? row[0] : 'West';
-      const store = hasDistrict ? row[1] : row[0];
-      const mobileExpert = hasDistrict ? row[2] : row[1];
-      const date = hasDistrict ? row[3] : row[2];
-      const time = hasDistrict ? row[4] : row[3];
-      const fileName = hasDistrict ? row[5] : row[4];
-      const fileUrl = hasDistrict ? row[6] : row[5];
-      const fileId = hasDistrict ? row[7] : row[6];
-      const deleted = hasDistrict ? row[8] : row[7];
-      const featuredStatus = hasDistrict ? row[9] : row[8];
-      const featuredBy = hasDistrict ? row[10] : row[9];
-      const photoType = hasDistrict ? row[11] : row[10];
+      // Detect format by checking if column B is a timestamp
+      const col1IsTimestamp = row[1] instanceof Date || 
+        (typeof row[1] === 'string' && row[1].match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+      
+      let district, store, mobileExpert, date, time, fileName, fileUrl, fileId, deleted, featuredStatus, featuredBy, photoType;
+      
+      if (col1IsTimestamp) {
+        // Format A: Has timestamp column
+        district = row[0] || 'West';
+        store = row[2];
+        mobileExpert = row[3];
+        date = row[4];
+        time = row[5];
+        fileName = row[6];
+        fileUrl = row[7];
+        fileId = row[8];
+        deleted = row[9];
+        featuredStatus = row[10];
+        featuredBy = row[11];
+        photoType = row[12];
+      } else {
+        // Format B: No timestamp column
+        district = row[0] || 'West';
+        store = row[1];
+        mobileExpert = row[2];
+        date = row[3];
+        time = row[4];
+        fileName = row[5];
+        fileUrl = row[6];
+        fileId = row[7];
+        deleted = row[8];
+        featuredStatus = row[9];
+        featuredBy = row[10];
+        photoType = row[11];
+      }
 
       if (featuredStatus === 'approved' && deleted !== true) {
         photos.push({
