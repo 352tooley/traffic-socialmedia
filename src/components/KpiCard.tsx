@@ -4,7 +4,7 @@ interface KpiCardProps {
   title: string;
   value: string | number;
   subtitle?: string;
-  color?: 'blue' | 'green' | 'orange' | 'purple';
+  color?: 'blue' | 'green' | 'orange' | 'purple' | 'magenta';
 }
 
 export function KpiCard({ title, value, subtitle, color = 'blue' }: KpiCardProps) {

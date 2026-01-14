@@ -66,6 +66,14 @@
   color: var(--magenta-primary);
 }
 
+.kpi-card--magenta {
+  border-left-color: var(--magenta-light);
+}
+
+.kpi-card--magenta .kpi-card__value {
+  color: var(--magenta-light);
+}
+
 @media (max-width: 640px) {
   .kpi-card {
     padding: 1.25rem;

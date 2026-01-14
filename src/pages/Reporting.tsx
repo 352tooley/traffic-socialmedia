@@ -136,6 +136,12 @@ export function Reporting() {
               value={metrics.submissionsPer100.toFixed(2)}
               color="orange"
             />
+            <KpiCard
+              title="ME Goal"
+              value={roster.length > 0 ? Math.round(calculateMonthlyGoal(metrics.traffic, trafficDataDate) / roster.length) : 0}
+              subtitle={`Per ME (${roster.length} ${roster.length === 1 ? 'ME' : 'MEs'})`}
+              color="magenta"
+            />
           </div>
         ) : activeStore ? (
           <div className="reporting-empty">
