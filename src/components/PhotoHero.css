@@ -15,11 +15,13 @@
   grid-template-rows: repeat(2, 1fr);
   gap: 4px;
   background: var(--dark);
+  z-index: 0;
 }
 
 .photo-hero__item {
   position: relative;
   overflow: hidden;
+  z-index: 0;
 }
 
 .photo-hero__item img {
@@ -27,6 +29,7 @@
   height: 100%;
   object-fit: cover;
   opacity: 0.85;
+  display: block;
 }
 
 /* Create interesting grid layout */

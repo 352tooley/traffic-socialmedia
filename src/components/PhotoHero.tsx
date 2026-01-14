@@ -40,15 +40,20 @@ export function PhotoHero() {
             <div className="photo-hero__shimmer"></div>
           </div>
         ) : photos.length > 0 ? (
-          photos.map((photo, index) => (
-            <div key={photo.fileId} className={`photo-hero__item photo-hero__item--${index + 1}`}>
-              <img 
-                src={photo.fileUrl} 
-                alt={`Photo by ${photo.mobileExpert}`}
-                loading="lazy"
-              />
-            </div>
-          ))
+          photos.map((photo, index) => {
+            console.log(`PhotoHero: Rendering photo ${index + 1}:`, photo.fileUrl);
+            return (
+              <div key={photo.fileId} className={`photo-hero__item photo-hero__item--${index + 1}`}>
+                <img 
+                  src={photo.fileUrl} 
+                  alt={`Photo by ${photo.mobileExpert}`}
+                  loading="lazy"
+                  onLoad={() => console.log(`PhotoHero: Image ${index + 1} loaded successfully`)}
+                  onError={(e) => console.error(`PhotoHero: Image ${index + 1} failed to load`, e)}
+                />
+              </div>
+            );
+          })
         ) : (
           <div className="photo-hero__empty">
             <div className="photo-hero__empty-icon">📸</div>
