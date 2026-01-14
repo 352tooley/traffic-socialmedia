@@ -23,6 +23,7 @@ export function UploadPhoto() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const teamPhotoInputRef = useRef<HTMLInputElement>(null);
 
+  const district = session?.district || 'West';
   const storeName = session?.storeName || '';
   const mobileExpertName = session?.mobileExpertName || '';
 
@@ -85,7 +86,7 @@ export function UploadPhoto() {
       const fileName = `${storeName}_${mobileExpertName}_${timestamp}.jpg`;
 
       // Upload to Google Drive
-      const result = await uploadPhoto(storeName, mobileExpertName, photoData, fileName);
+      const result = await uploadPhoto(district, storeName, mobileExpertName, photoData, fileName);
 
       if (result.success) {
         setSuccess(true);
@@ -129,7 +130,7 @@ export function UploadPhoto() {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const fileName = `${storeName}_team_${timestamp}.jpg`;
 
-      const result = await uploadTeamPhoto(storeName, mobileExpertName, photoData, fileName);
+      const result = await uploadTeamPhoto(district, storeName, mobileExpertName, photoData, fileName);
 
       if (result.success) {
         setTeamUploadSuccess(true);

@@ -1,7 +1,8 @@
-import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST, DEFAULT_STORE_PASSWORD } from '../config';
+import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST, DEFAULT_STORE_PASSWORD, type District, getStoreList as getDistrictStores } from '../config';
 import type { StoreMetrics, StoreRoster, StoreAuth, Photo } from '../types';
 
 // Header names to look for (case-insensitive matching)
+const HEADER_DISTRICT = 'District';
 const HEADER_STORE_NAME = 'Store Name';
 const HEADER_COUNT = 'Count';
 const HEADER_TRAFFIC = 'Traffic';
@@ -61,6 +62,7 @@ function parseCSV(csvText: string): StoreMetrics[] {
   });
 
   // Validate required headers exist
+  const districtIndex = findHeaderIndex(headerMap, HEADER_DISTRICT);
   const storeNameIndex = findHeaderIndex(headerMap, HEADER_STORE_NAME);
   const countIndex = findHeaderIndex(headerMap, HEADER_COUNT);
   const trafficIndex = findHeaderIndex(headerMap, HEADER_TRAFFIC);
@@ -79,6 +81,7 @@ function parseCSV(csvText: string): StoreMetrics[] {
 
     if (values.length === 0) continue;
 
+    const district = (districtIndex !== -1 ? values[districtIndex]?.trim() : 'West') as District || 'West';
     const storeName = values[storeNameIndex]?.trim() || '';
 
     // Skip empty rows and "Total" row
@@ -97,6 +100,7 @@ function parseCSV(csvText: string): StoreMetrics[] {
     // Always overwrite - last/newest entry wins
     storeMap.set(storeName, {
       storeName,
+      district,
       submissions,
       traffic,
       submissionsPer100,
@@ -220,6 +224,7 @@ export async function getDistrictTotals(): Promise<StoreMetrics | null> {
 
         return {
           storeName: 'District Total',
+          district: 'West' as District,
           submissions,
           traffic,
           submissionsPer100,
@@ -345,14 +350,14 @@ export async function fetchRoster(storeName?: string): Promise<StoreRoster[]> {
   try {
     const response = await fetch(ROSTER_CSV_URL);
     if (!response.ok) {
-      return STORE_LIST.map(store => ({ storeName: store, mobileExperts: [] }));
+      return STORE_LIST.map(store => ({ storeName: store, district: 'West' as District, mobileExperts: [] }));
     }
 
     const csvText = await response.text();
     return parseRosterCSV(csvText);
   } catch (error) {
     console.error('Error fetching roster:', error);
-    return STORE_LIST.map(store => ({ storeName: store, mobileExperts: [] }));
+    return STORE_LIST.map(store => ({ storeName: store, district: 'West' as District, mobileExperts: [] }));
   }
 }
 
@@ -361,10 +366,13 @@ export async function fetchRoster(storeName?: string): Promise<StoreRoster[]> {
  */
 function parseRosterCSV(csvText: string): StoreRoster[] {
   const lines = csvText.trim().split('\n');
-  const rosterMap = new Map<string, string[]>();
+  const rosterMap = new Map<string, { district: District; mobileExperts: string[] }>();
 
   // Initialize all stores with empty arrays
-  STORE_LIST.forEach(store => rosterMap.set(store, []));
+  STORE_LIST.forEach(store => rosterMap.set(store, { 
+    district: 'West' as District, 
+    mobileExperts: [] 
+  }));
 
   // Skip header row if present
   const startIndex = lines[0]?.toLowerCase().includes('store') ? 1 : 0;
@@ -373,20 +381,27 @@ function parseRosterCSV(csvText: string): StoreRoster[] {
     const values = parseCSVLine(lines[i]);
     if (values.length < 2) continue;
 
-    const storeName = values[0]?.trim();
-    const mobileExpertName = values[1]?.trim();
+    // Check if we have district column (3 values) or old format (2 values)
+    const hasDistrict = values.length >= 3;
+    const district = (hasDistrict ? values[0]?.trim() : 'West') as District;
+    const storeName = hasDistrict ? values[1]?.trim() : values[0]?.trim();
+    const mobileExpertName = hasDistrict ? values[2]?.trim() : values[1]?.trim();
 
-    if (storeName && mobileExpertName && rosterMap.has(storeName)) {
-      const experts = rosterMap.get(storeName)!;
-      if (!experts.includes(mobileExpertName)) {
-        experts.push(mobileExpertName);
+    if (storeName && mobileExpertName) {
+      if (!rosterMap.has(storeName)) {
+        rosterMap.set(storeName, { district, mobileExperts: [] });
+      }
+      const storeData = rosterMap.get(storeName)!;
+      if (!storeData.mobileExperts.includes(mobileExpertName)) {
+        storeData.mobileExperts.push(mobileExpertName);
       }
     }
   }
 
-  return Array.from(rosterMap.entries()).map(([storeName, mobileExperts]) => ({
+  return Array.from(rosterMap.entries()).map(([storeName, data]) => ({
     storeName,
-    mobileExperts: mobileExperts.sort(),
+    district: data.district,
+    mobileExperts: data.mobileExperts.sort(),
   }));
 }
 
@@ -481,7 +496,7 @@ export async function fetchPasswords(): Promise<StoreAuth[]> {
     const response = await fetch(PASSWORDS_CSV_URL);
     if (!response.ok) {
       // If passwords sheet doesn't exist, return defaults
-      return STORE_LIST.map(storeName => ({ storeName, password: DEFAULT_STORE_PASSWORD }));
+      return STORE_LIST.map(storeName => ({ storeName, district: 'West' as District, password: DEFAULT_STORE_PASSWORD }));
     }
 
     const csvText = await response.text();
@@ -494,7 +509,7 @@ export async function fetchPasswords(): Promise<StoreAuth[]> {
   } catch (error) {
     console.error('Error fetching passwords:', error);
     // Return defaults on error
-    return STORE_LIST.map(storeName => ({ storeName, password: DEFAULT_STORE_PASSWORD }));
+    return STORE_LIST.map(storeName => ({ storeName, district: 'West' as District, password: DEFAULT_STORE_PASSWORD }));
   }
 }
 
@@ -503,10 +518,14 @@ export async function fetchPasswords(): Promise<StoreAuth[]> {
  */
 function parsePasswordsCSV(csvText: string): StoreAuth[] {
   const lines = csvText.trim().split('\n');
-  const passwordMap = new Map<string, string>();
+  const passwordMap = new Map<string, StoreAuth>();
 
   // Initialize all stores with default password
-  STORE_LIST.forEach(store => passwordMap.set(store, DEFAULT_STORE_PASSWORD));
+  STORE_LIST.forEach(store => passwordMap.set(store, { 
+    storeName: store, 
+    district: 'West' as District,
+    password: DEFAULT_STORE_PASSWORD 
+  }));
 
   // Skip header row if present
   const startIndex = lines[0]?.toLowerCase().includes('store') ? 1 : 0;
@@ -515,34 +534,34 @@ function parsePasswordsCSV(csvText: string): StoreAuth[] {
     const values = parseCSVLine(lines[i]);
     if (values.length < 2) continue;
 
-    const storeName = values[0]?.trim();
-    const password = values[1]?.trim();
+    // Check if we have district column (3 values) or old format (2 values)
+    const hasDistrict = values.length >= 3;
+    const district = (hasDistrict ? values[0]?.trim() : 'West') as District;
+    const storeName = hasDistrict ? values[1]?.trim() : values[0]?.trim();
+    const password = hasDistrict ? values[2]?.trim() : values[1]?.trim();
 
-    if (storeName && password && passwordMap.has(storeName)) {
-      passwordMap.set(storeName, password);
+    if (storeName && password) {
+      passwordMap.set(storeName, { storeName, district, password });
     }
   }
 
-  return Array.from(passwordMap.entries()).map(([storeName, password]) => ({
-    storeName,
-    password,
-  }));
+  return Array.from(passwordMap.values());
 }
 
 /**
  * Gets password for a specific store
  */
-export async function getStorePassword(storeName: string): Promise<string> {
+export async function getStorePassword(district: District, storeName: string): Promise<string> {
   const allPasswords = await fetchPasswords();
-  const storeAuth = allPasswords.find(p => p.storeName === storeName);
+  const storeAuth = allPasswords.find(p => p.storeName === storeName && p.district === district);
   return storeAuth?.password || DEFAULT_STORE_PASSWORD;
 }
 
 /**
  * Verifies a store password
  */
-export async function verifyStorePassword(storeName: string, password: string): Promise<boolean> {
-  const correctPassword = await getStorePassword(storeName);
+export async function verifyStorePassword(district: District, storeName: string, password: string): Promise<boolean> {
+  const correctPassword = await getStorePassword(district, storeName);
   return password === correctPassword;
 }
 
@@ -655,10 +674,11 @@ export function clearCache() {
 }
 
 /**
- * Get list of all stores
+ * Get list of all stores (optionally filtered by district)
  */
-export function getStoreList(): string[] {
-  return STORE_LIST;
+export function getStoreList(district?: District): string[] {
+  if (!district) return STORE_LIST;
+  return getDistrictStores(district);
 }
 
 // ==================== PHOTO FUNCTIONS ====================
@@ -667,6 +687,7 @@ export function getStoreList(): string[] {
  * Uploads a photo to Google Drive via Apps Script
  */
 export async function uploadPhoto(
+  district: District,
   storeName: string,
   mobileExpertName: string,
   photoData: string,
@@ -683,6 +704,7 @@ export async function uploadPhoto(
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'uploadPhoto',
+        district,
         storeName,
         mobileExpertName,
         photoData,
@@ -1018,6 +1040,7 @@ export async function unapprovePhoto(fileId: string): Promise<boolean> {
  * Uploads a team photo (RSM) - goes to DM approval
  */
 export async function uploadTeamPhoto(
+  district: District,
   storeName: string,
   uploadedBy: string,
   photoData: string,
@@ -1034,6 +1057,7 @@ export async function uploadTeamPhoto(
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'uploadTeamPhoto',
+        district,
         storeName,
         uploadedBy,
         photoData,
@@ -1053,6 +1077,7 @@ export async function uploadTeamPhoto(
  * Uploads a DM photo (auto-approved for homepage)
  */
 export async function uploadDMPhoto(
+  district: District,
   uploadedBy: string,
   photoData: string,
   fileName: string
@@ -1068,6 +1093,7 @@ export async function uploadDMPhoto(
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'uploadDMPhoto',
+        district,
         uploadedBy,
         photoData,
         fileName,

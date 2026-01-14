@@ -1,13 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { UserSession } from '../types';
-import { DM_PASSWORD } from '../config';
+import { DM_PASSWORD, type District } from '../config';
 import { verifyStorePassword } from '../services/sheetsService';
 
 interface AuthContextType {
   session: UserSession | null;
   isAuthenticated: boolean;
-  loginAsMobileExpert: (storeName: string, mobileExpertName: string) => void;
-  loginAsStore: (storeName: string, password: string) => Promise<boolean>;
+  loginAsMobileExpert: (district: District, storeName: string, mobileExpertName: string) => void;
+  loginAsStore: (district: District, storeName: string, password: string) => Promise<boolean>;
   loginAsDM: (password: string) => boolean;
   logout: () => void;
 }
@@ -17,19 +17,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<UserSession | null>(null);
 
-  const loginAsMobileExpert = (storeName: string, mobileExpertName: string) => {
+  const loginAsMobileExpert = (district: District, storeName: string, mobileExpertName: string) => {
     setSession({
       role: 'mobile_expert',
+      district,
       storeName,
       mobileExpertName,
     });
   };
 
-  const loginAsStore = async (storeName: string, password: string): Promise<boolean> => {
-    const isValid = await verifyStorePassword(storeName, password);
+  const loginAsStore = async (district: District, storeName: string, password: string): Promise<boolean> => {
+    const isValid = await verifyStorePassword(district, storeName, password);
     if (isValid) {
       setSession({
         role: 'store',
+        district,
         storeName,
       });
       return true;
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (password === DM_PASSWORD) {
       setSession({
         role: 'dm',
+        district: 'West', // DM can see all districts, default to West
         storeName: '',
       });
       return true;

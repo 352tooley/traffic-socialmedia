@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getStoreList, getStoreRoster } from '../services/sheetsService';
+import { DISTRICTS, type District } from '../config';
 import { Button } from '../components';
 import { PhotoHero } from '../components/PhotoHero';
 import './Login.css';
@@ -10,6 +11,7 @@ type LoginMode = 'select' | 'mobile_expert' | 'store' | 'dm';
 
 export function Login() {
   const [mode, setMode] = useState<LoginMode>('select');
+  const [selectedDistrict, setSelectedDistrict] = useState<District>('West');
   const [selectedStore, setSelectedStore] = useState('');
   const [mobileExpertName, setMobileExpertName] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +22,7 @@ export function Login() {
   const navigate = useNavigate();
   const { loginAsMobileExpert, loginAsStore, loginAsDM, session } = useAuth();
 
-  const stores = getStoreList();
+  const stores = getStoreList(selectedDistrict);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -50,6 +52,10 @@ export function Login() {
   };
 
   const handleMobileExpertLogin = () => {
+    if (!selectedDistrict) {
+      setError('Please select a district');
+      return;
+    }
     if (!selectedStore) {
       setError('Please select a store');
       return;
@@ -59,11 +65,15 @@ export function Login() {
       return;
     }
 
-    loginAsMobileExpert(selectedStore, mobileExpertName);
+    loginAsMobileExpert(selectedDistrict, selectedStore, mobileExpertName);
     navigate('/upload');
   };
 
   const handleStoreLogin = async () => {
+    if (!selectedDistrict) {
+      setError('Please select a district');
+      return;
+    }
     if (!selectedStore) {
       setError('Please select a store');
       return;
@@ -75,7 +85,7 @@ export function Login() {
 
     setLoading(true);
     try {
-      const success = await loginAsStore(selectedStore, password);
+      const success = await loginAsStore(selectedDistrict, selectedStore, password);
       if (success) {
         navigate('/');
       } else {
@@ -136,6 +146,25 @@ export function Login() {
       <h2>Mobile Expert Sign In</h2>
 
       {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>District</label>
+        <select
+          value={selectedDistrict}
+          onChange={(e) => {
+            setSelectedDistrict(e.target.value as District);
+            setSelectedStore('');
+            setMobileExpertName('');
+            setError('');
+          }}
+        >
+          {DISTRICTS.map((district) => (
+            <option key={district} value={district}>
+              {district}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="login-field">
         <label>Store</label>
@@ -203,6 +232,24 @@ export function Login() {
       <h2>Store Manager Login</h2>
 
       {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>District</label>
+        <select
+          value={selectedDistrict}
+          onChange={(e) => {
+            setSelectedDistrict(e.target.value as District);
+            setSelectedStore('');
+            setError('');
+          }}
+        >
+          {DISTRICTS.map((district) => (
+            <option key={district} value={district}>
+              {district}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="login-field">
         <label>Store</label>

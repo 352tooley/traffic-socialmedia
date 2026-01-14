@@ -11,6 +11,7 @@ type ViewTab = 'pending' | 'approved';
 export function Approvals() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const district = session?.district || 'West';
   const [activeTab, setActiveTab] = useState<ViewTab>('pending');
   const [pendingPhotos, setPendingPhotos] = useState<Photo[]>([]);
   const [approvedPhotos, setApprovedPhotos] = useState<Photo[]>([]);
@@ -123,7 +124,7 @@ export function Approvals() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const fileName = `DM_district_${timestamp}.jpg`;
 
-        const result = await uploadDMPhoto('DM', base64, fileName);
+        const result = await uploadDMPhoto(district, 'DM', base64, fileName);
 
         if (result.success) {
           setUploadSuccess(true);

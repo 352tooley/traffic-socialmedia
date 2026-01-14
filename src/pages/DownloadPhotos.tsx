@@ -22,6 +22,7 @@ export function DownloadPhotos() {
 
   const isDM = session?.role === 'dm';
   const isStore = session?.role === 'store';
+  const district = session?.district || 'West';
   const storeName = session?.storeName || '';
 
   // Show delete button for store managers and DM
@@ -128,7 +129,7 @@ export function DownloadPhotos() {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const fileName = `${storeName}_team_${timestamp}.jpg`;
 
-        const result = await uploadTeamPhoto(storeName, storeName, base64, fileName);
+        const result = await uploadTeamPhoto(district, storeName, storeName, base64, fileName);
 
         if (result.success) {
           setUploadSuccess(true);
