@@ -4,16 +4,16 @@
 }
 
 .upload-form {
-  background: white;
-  border-radius: 12px;
+  background: var(--white);
+  border-radius: 20px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 .upload-form__info {
-  background: #f8fafc;
+  background: var(--background);
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-bottom: 1.5rem;
 }
 
@@ -59,7 +59,7 @@
 
 .upload-form__field select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--magenta-primary);
 }
 
 .upload-form__other-input {
@@ -86,7 +86,7 @@
 
 .upload-form__field input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--magenta-primary);
 }
 
 .upload-form__photo-section {
@@ -124,9 +124,9 @@
 }
 
 .upload-form__photo-btn:hover {
-  border-color: #3b82f6;
-  background: #eff6ff;
-  color: #3b82f6;
+  border-color: var(--magenta-primary);
+  background: #FFF4F7;
+  color: var(--magenta-primary);
 }
 
 .upload-form__photo-btn svg {

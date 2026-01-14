@@ -1,39 +1,49 @@
 .home {
-  padding: 1rem 0;
+  padding: 0;
 }
 
 .home__welcome {
   text-align: center;
+  background: var(--gradient-magenta);
+  color: var(--white);
+  padding: 2rem 1.5rem;
+  border-radius: 0 0 24px 24px;
   margin-bottom: 2rem;
 }
 
 .home__welcome h2 {
-  font-size: 1.5rem;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem 0;
 }
 
 .home__role-badge {
   display: inline-block;
-  background: #dbeafe;
-  color: #1d4ed8;
-  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  color: var(--white);
+  padding: 0.5rem 1.25rem;
   border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
   margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .home__actions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 1rem;
-  max-width: 400px;
+  max-width: 500px;
   margin: 0 auto;
+  padding: 0 1rem;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
+  .home__welcome {
+    padding: 1.75rem 1rem;
+  }
+
   .home__welcome h2 {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
   }
 }

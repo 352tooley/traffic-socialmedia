@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getStoreList, getStoreRoster } from '../services/sheetsService';
 import { Button } from '../components';
+import { PhotoHero } from '../components/PhotoHero';
 import './Login.css';
 
 type LoginMode = 'select' | 'mobile_expert' | 'store' | 'dm';
@@ -102,19 +103,27 @@ export function Login() {
 
   const renderModeSelection = () => (
     <div className="login-modes">
-      <h2>Welcome</h2>
-      <p>Select how you want to sign in:</p>
+      <h2>Welcome Back!</h2>
+      <p>Choose your role to get started</p>
 
-      <div className="login-modes__buttons">
-        <Button variant="large" fullWidth onClick={() => setMode('mobile_expert')}>
-          Mobile Expert - Upload Photos
-        </Button>
-        <Button variant="large" fullWidth onClick={() => setMode('store')}>
-          Store Manager (RSM)
-        </Button>
-        <Button variant="large" fullWidth onClick={() => setMode('dm')}>
-          District Manager
-        </Button>
+      <div className="login-modes__cards">
+        <div className="login-mode-card" onClick={() => setMode('mobile_expert')}>
+          <span className="login-mode-card__icon">📸</span>
+          <h3 className="login-mode-card__title">Mobile Expert</h3>
+          <p className="login-mode-card__description">Upload and share your store photos</p>
+        </div>
+        
+        <div className="login-mode-card" onClick={() => setMode('store')}>
+          <span className="login-mode-card__icon">🏪</span>
+          <h3 className="login-mode-card__title">Store Manager</h3>
+          <p className="login-mode-card__description">Manage your team and view reports</p>
+        </div>
+        
+        <div className="login-mode-card" onClick={() => setMode('dm')}>
+          <span className="login-mode-card__icon">📊</span>
+          <h3 className="login-mode-card__title">District Manager</h3>
+          <p className="login-mode-card__description">District-wide insights and analytics</p>
+        </div>
       </div>
     </div>
   );
@@ -266,11 +275,9 @@ export function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-card__header">
-          <h1>Traffic Social Media</h1>
-        </div>
-
+      {mode === 'select' && <PhotoHero />}
+      
+      <div className="login-container">
         {mode === 'select' && renderModeSelection()}
         {mode === 'mobile_expert' && renderMobileExpertLogin()}
         {mode === 'store' && renderStoreLogin()}
