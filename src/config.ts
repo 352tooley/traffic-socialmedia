@@ -6,11 +6,11 @@ export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7
 
 // Roster CSV (Roster tab)
 // Format: Store Name, Mobile Expert Name (one row per mobile expert)
-export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=0&single=true&output=csv';
+export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=1331432233&single=true&output=csv';
 
 // Passwords CSV (Passwords tab)
 // Format: Store Name, Password
-export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=PASSWORDS_GID&single=true&output=csv';
+export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=1351038140&single=true&output=csv';
 
 // Google Apps Script Web App URL for writing to sheets
 // Deploy the Apps Script and paste the URL here
