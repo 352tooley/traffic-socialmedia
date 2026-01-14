@@ -877,6 +877,59 @@ export async function getPendingPhotos(): Promise<Photo[]> {
 }
 
 /**
+ * Gets all approved photos (currently on homepage)
+ */
+export async function getApprovedPhotos(): Promise<Photo[]> {
+  if (!APPS_SCRIPT_URL) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getApprovedPhotos',
+      }),
+    });
+
+    const result = await response.json();
+    return result.success ? result.photos : [];
+  } catch (error) {
+    console.error('Error getting approved photos:', error);
+    return [];
+  }
+}
+
+/**
+ * Unapproves a photo (removes from homepage rotation)
+ */
+export async function unapprovePhoto(fileId: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'unapprovePhoto',
+        fileId,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error unapproving photo:', error);
+    return false;
+  }
+}
+
+/**
  * Uploads a team photo (RSM) - goes to DM approval
  */
 export async function uploadTeamPhoto(

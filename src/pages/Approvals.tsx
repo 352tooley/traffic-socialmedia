@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getPendingPhotos, approvePhoto, rejectPhoto, uploadDMPhoto } from '../services/sheetsService';
+import { getPendingPhotos, getApprovedPhotos, approvePhoto, rejectPhoto, unapprovePhoto, uploadDMPhoto } from '../services/sheetsService';
 import type { Photo } from '../types';
 import { Layout, Button } from '../components';
 import './Approvals.css';
 
+type ViewTab = 'pending' | 'approved';
+
 export function Approvals() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<ViewTab>('pending');
   const [pendingPhotos, setPendingPhotos] = useState<Photo[]>([]);
+  const [approvedPhotos, setApprovedPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -33,11 +37,15 @@ export function Approvals() {
     setLoading(true);
     setError('');
     try {
-      const photos = await getPendingPhotos();
-      setPendingPhotos(photos);
+      const [pending, approved] = await Promise.all([
+        getPendingPhotos(),
+        getApprovedPhotos()
+      ]);
+      setPendingPhotos(pending);
+      setApprovedPhotos(approved);
     } catch (err) {
-      console.error('Error loading pending photos:', err);
-      setError('Failed to load pending photos');
+      console.error('Error loading photos:', err);
+      setError('Failed to load photos');
     } finally {
       setLoading(false);
     }
@@ -49,6 +57,8 @@ export function Approvals() {
       const success = await approvePhoto(photo.fileId);
       if (success) {
         setPendingPhotos(pendingPhotos.filter(p => p.fileId !== photo.fileId));
+        // Reload to get updated approved list
+        await loadPendingPhotos();
       } else {
         setError('Failed to approve photo');
       }
@@ -70,6 +80,22 @@ export function Approvals() {
       }
     } catch (err) {
       setError('Failed to reject photo');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleUnapprove = async (photo: Photo) => {
+    setProcessingId(photo.fileId);
+    try {
+      const success = await unapprovePhoto(photo.fileId);
+      if (success) {
+        setApprovedPhotos(approvedPhotos.filter(p => p.fileId !== photo.fileId));
+      } else {
+        setError('Failed to remove photo from homepage');
+      }
+    } catch (err) {
+      setError('Failed to remove photo from homepage');
     } finally {
       setProcessingId(null);
     }
@@ -123,13 +149,29 @@ export function Approvals() {
     <Layout title="Photo Approvals" showBack>
       <div className="approvals-page">
         <div className="approvals-header">
-          <h2>Pending Homepage Photos</h2>
+          <h2>Homepage Photos</h2>
           <Button onClick={() => setShowDMUpload(!showDMUpload)} variant="secondary">
             {showDMUpload ? 'Cancel' : '+ Upload District Photo'}
           </Button>
         </div>
 
         {error && <div className="approvals-error">{error}</div>}
+
+        {/* Tabs */}
+        <div className="approvals-tabs">
+          <button
+            className={`approvals-tab ${activeTab === 'pending' ? 'approvals-tab--active' : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            ⏳ Pending Approval ({pendingPhotos.length})
+          </button>
+          <button
+            className={`approvals-tab ${activeTab === 'approved' ? 'approvals-tab--active' : ''}`}
+            onClick={() => setActiveTab('approved')}
+          >
+            ✅ On Homepage ({approvedPhotos.length})
+          </button>
+        </div>
 
         {/* DM Direct Upload (auto-approved) */}
         {showDMUpload && (
@@ -190,59 +232,111 @@ export function Approvals() {
         )}
 
         {loading ? (
-          <div className="approvals-loading">Loading pending photos...</div>
-        ) : pendingPhotos.length === 0 ? (
-          <div className="approvals-empty">
-            <p>🎉 No photos pending approval!</p>
-            <p className="approvals-empty__hint">
-              Store managers can recommend photos for the homepage.
-            </p>
-          </div>
+          <div className="approvals-loading">Loading photos...</div>
         ) : (
-          <div className="approvals-grid">
-            {pendingPhotos.map((photo) => (
-              <div key={photo.fileId} className="approval-card">
-                <div className="approval-card__image">
-                  <img src={photo.fileUrl} alt={photo.fileName} />
-                  <div className="approval-card__badge">
-                    {photo.photoType === 'team' ? '👥 Team Photo' : '📸 Mobile Expert'}
+          <>
+            {/* Pending Photos Tab */}
+            {activeTab === 'pending' && (
+              <>
+                {pendingPhotos.length === 0 ? (
+                  <div className="approvals-empty">
+                    <p>🎉 No photos pending approval!</p>
+                    <p className="approvals-empty__hint">
+                      Store managers can recommend photos for the homepage.
+                    </p>
                   </div>
-                </div>
-                <div className="approval-card__info">
-                  <div className="approval-card__store">{photo.storeName}</div>
-                  <div className="approval-card__meta">
-                    By: {photo.mobileExpert} • {photo.date}
+                ) : (
+                  <div className="approvals-grid">
+                    {pendingPhotos.map((photo) => (
+                      <div key={photo.fileId} className="approval-card">
+                        <div className="approval-card__image">
+                          <img src={photo.fileUrl} alt={photo.fileName} />
+                          <div className="approval-card__badge">
+                            {photo.photoType === 'team' ? '👥 Team Photo' : '📸 Mobile Expert'}
+                          </div>
+                        </div>
+                        <div className="approval-card__info">
+                          <div className="approval-card__store">{photo.storeName}</div>
+                          <div className="approval-card__meta">
+                            By: {photo.mobileExpert} • {photo.date}
+                          </div>
+                          {photo.featuredBy && (
+                            <div className="approval-card__featured">
+                              Recommended by: {photo.featuredBy}
+                            </div>
+                          )}
+                        </div>
+                        <div className="approval-card__actions">
+                          <button
+                            className="approval-card__approve"
+                            onClick={() => handleApprove(photo)}
+                            disabled={processingId === photo.fileId}
+                          >
+                            {processingId === photo.fileId ? '...' : '✅ Approve'}
+                          </button>
+                          <button
+                            className="approval-card__reject"
+                            onClick={() => handleReject(photo)}
+                            disabled={processingId === photo.fileId}
+                          >
+                            {processingId === photo.fileId ? '...' : '❌ Reject'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {photo.featuredBy && (
-                    <div className="approval-card__featured">
-                      Recommended by: {photo.featuredBy}
-                    </div>
-                  )}
-                </div>
-                <div className="approval-card__actions">
-                  <button
-                    className="approval-card__approve"
-                    onClick={() => handleApprove(photo)}
-                    disabled={processingId === photo.fileId}
-                  >
-                    {processingId === photo.fileId ? '...' : '✅ Approve'}
-                  </button>
-                  <button
-                    className="approval-card__reject"
-                    onClick={() => handleReject(photo)}
-                    disabled={processingId === photo.fileId}
-                  >
-                    {processingId === photo.fileId ? '...' : '❌ Reject'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                )}
+              </>
+            )}
 
-        <div className="approvals-count">
-          {pendingPhotos.length} photo{pendingPhotos.length !== 1 ? 's' : ''} awaiting approval
-        </div>
+            {/* Approved Photos Tab */}
+            {activeTab === 'approved' && (
+              <>
+                {approvedPhotos.length === 0 ? (
+                  <div className="approvals-empty">
+                    <p>📭 No approved photos yet</p>
+                    <p className="approvals-empty__hint">
+                      Approve photos from the Pending tab to show them on the homepage.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="approvals-grid">
+                    {approvedPhotos.map((photo) => (
+                      <div key={photo.fileId} className="approval-card approval-card--approved">
+                        <div className="approval-card__image">
+                          <img src={photo.fileUrl} alt={photo.fileName} />
+                          <div className="approval-card__badge approval-card__badge--live">
+                            ✅ Live on Homepage
+                          </div>
+                        </div>
+                        <div className="approval-card__info">
+                          <div className="approval-card__store">{photo.storeName}</div>
+                          <div className="approval-card__meta">
+                            By: {photo.mobileExpert} • {photo.date}
+                          </div>
+                          {photo.featuredBy && (
+                            <div className="approval-card__featured">
+                              Recommended by: {photo.featuredBy}
+                            </div>
+                          )}
+                        </div>
+                        <div className="approval-card__actions">
+                          <button
+                            className="approval-card__remove"
+                            onClick={() => handleUnapprove(photo)}
+                            disabled={processingId === photo.fileId}
+                          >
+                            {processingId === photo.fileId ? '...' : '🗑️ Remove from Homepage'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </Layout>
   );

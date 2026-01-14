@@ -84,8 +84,14 @@ function doPost(e) {
       case 'getPendingPhotos':
         result = getPendingPhotos();
         break;
+      case 'getApprovedPhotos':
+        result = getApprovedPhotos();
+        break;
+      case 'unapprovePhoto':
+        result = unapprovePhoto(data.fileId);
+        break;
       default:
-        result = { success: false, error: 'Unknown action' };
+        result = { success: false, error: 'Unknown action: ' + data.action };
     }
 
     return ContentService.createTextOutput(JSON.stringify(result))
@@ -738,6 +744,80 @@ function getPendingPhotos() {
     return { success: true, photos: photos };
   } catch (error) {
     return { success: false, error: error.toString(), photos: [] };
+  }
+}
+
+/**
+ * Gets all approved photos (currently on homepage)
+ */
+function getApprovedPhotos() {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    const photos = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const isDeleted = row[7] === 'Yes' || row[7] === true;
+      const featuredStatus = row[8] || '';
+
+      // Only get approved, non-deleted photos
+      if (isDeleted || featuredStatus !== 'approved') {
+        continue;
+      }
+
+      // Format dates
+      let dateStr = row[2];
+      if (dateStr instanceof Date) {
+        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
+      } else if (dateStr) {
+        dateStr = String(dateStr);
+      }
+
+      let timeStr = row[3];
+      if (timeStr instanceof Date) {
+        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
+      } else if (timeStr) {
+        timeStr = String(timeStr);
+      }
+
+      photos.push({
+        storeName: row[0],
+        mobileExpert: row[1],
+        date: dateStr,
+        time: timeStr,
+        fileName: row[4],
+        fileUrl: row[5],
+        fileId: row[6],
+        featuredBy: row[9] || '',
+        photoType: row[10] || 'mobile_expert'
+      });
+    }
+
+    return { success: true, photos: photos };
+  } catch (error) {
+    return { success: false, error: error.toString(), photos: [] };
+  }
+}
+
+/**
+ * Unapproves a photo (removes from homepage rotation)
+ */
+function unapprovePhoto(fileId) {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][6] === fileId) {
+        sheet.getRange(i + 1, 9).setValue(''); // Clear featured status
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: 'Photo not found' };
+  } catch (error) {
+    return { success: false, error: error.toString() };
   }
 }
 

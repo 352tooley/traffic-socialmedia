@@ -7,3 +7,4 @@ export { DistrictOverview } from './DistrictOverview';
 export { StoreDetail } from './StoreDetail';
 export { Roster } from './Roster';
 export { Passwords } from './Passwords';
+export { Approvals } from './Approvals';
