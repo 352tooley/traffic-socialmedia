@@ -10,11 +10,11 @@ const HEADER_TRAFFIC = 'Traffic';
 let metricsCache: { data: StoreMetrics[]; timestamp: number } | null = null;
 let rosterCache: { data: StoreRoster[]; timestamp: number } | null = null;
 let passwordsCache: { data: StoreAuth[]; timestamp: number } | null = null;
-const CACHE_DURATION = 60000; // 1 minute cache
+const CACHE_DURATION = 30000; // 30 second cache for fresher data
 
 /**
  * Fetches and parses the CSV from Google Sheets
- * Returns only current data (deduped by store name, keeping latest/first entry)
+ * Returns only current data (deduped by store name, keeping NEWEST entry)
  */
 export async function fetchStoreMetrics(): Promise<StoreMetrics[]> {
   // Return cached data if still valid
@@ -43,7 +43,7 @@ export async function fetchStoreMetrics(): Promise<StoreMetrics[]> {
 
 /**
  * Parses CSV text into StoreMetrics array
- * Deduplicates by store name - keeps only the FIRST occurrence of each store
+ * Deduplicates by store name - keeps only the LAST/NEWEST occurrence of each store
  */
 function parseCSV(csvText: string): StoreMetrics[] {
   const lines = csvText.trim().split('\n');
@@ -71,7 +71,7 @@ function parseCSV(csvText: string): StoreMetrics[] {
     throw new Error('CSV missing required headers: Store Name, Count, or Traffic');
   }
 
-  // Use a Map to deduplicate - first occurrence wins (current data)
+  // Use a Map to deduplicate - LAST occurrence wins (newest data)
   const storeMap = new Map<string, StoreMetrics>();
 
   // Parse data rows (skip header row)
@@ -87,11 +87,6 @@ function parseCSV(csvText: string): StoreMetrics[] {
       continue;
     }
 
-    // Skip if we already have this store (keeps first/current entry only)
-    if (storeMap.has(storeName)) {
-      continue;
-    }
-
     const submissions = parseNumber(values[countIndex]);
     const traffic = parseNumber(values[trafficIndex]);
 
@@ -100,6 +95,7 @@ function parseCSV(csvText: string): StoreMetrics[] {
       ? Math.round((submissions / traffic) * 100 * 100) / 100
       : 0;
 
+    // Always overwrite - last/newest entry wins
     storeMap.set(storeName, {
       storeName,
       submissions,
