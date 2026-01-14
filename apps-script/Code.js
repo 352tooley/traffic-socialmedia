@@ -155,8 +155,11 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
 
     // Get current date/time in Central Time
     const now = new Date();
-    const date = Utilities.formatDate(now, TIMEZONE, 'MM/dd/yyyy');
-    const time = Utilities.formatDate(now, TIMEZONE, 'hh:mm a');
+    Logger.log('Raw UTC time: ' + now.toISOString());
+    Logger.log('Timezone being used: ' + TIMEZONE);
+    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
+    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
+    Logger.log('Formatted date: ' + date + ' time: ' + time);
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
@@ -453,37 +456,40 @@ function setNotificationEmail(storeName, email) {
  * Sends email notification when a photo is uploaded
  */
 function sendPhotoNotification(storeName, mobileExpertName, fileUrl, date, time) {
+  Logger.log('sendPhotoNotification called for store: ' + storeName);
+  
   try {
     const result = getNotificationEmail(storeName);
-    if (!result.success || !result.email) {
-      return; // No email configured, skip notification
+    Logger.log('getNotificationEmail result: ' + JSON.stringify(result));
+    
+    if (!result.success) {
+      Logger.log('Failed to get notification email: ' + result.error);
+      return;
+    }
+    
+    if (!result.email) {
+      Logger.log('No email configured for store: ' + storeName);
+      return;
     }
 
     const email = result.email;
-    const subject = `📸 New Photo Upload - ${storeName}`;
-    const body = `
-A new photo has been uploaded!
+    Logger.log('Sending email to: ' + email);
+    
+    const subject = '📸 New Photo Upload - ' + storeName;
+    const body = 'A new photo has been uploaded!\n\n' +
+      'Store: ' + storeName + '\n' +
+      'Mobile Expert: ' + mobileExpertName + '\n' +
+      'Date: ' + date + '\n' +
+      'Time: ' + time + '\n\n' +
+      'View Photo: ' + fileUrl + '\n\n' +
+      '---\nTraffic Social Media App';
 
-Store: ${storeName}
-Mobile Expert: ${mobileExpertName}
-Date: ${date}
-Time: ${time}
+    MailApp.sendEmail(email, subject, body);
 
-View Photo: ${fileUrl}
-
----
-Traffic Social Media App
-    `.trim();
-
-    MailApp.sendEmail({
-      to: email,
-      subject: subject,
-      body: body
-    });
-
-    Logger.log('Notification sent to ' + email);
+    Logger.log('Notification email sent successfully to ' + email);
   } catch (error) {
-    Logger.log('Failed to send notification: ' + error.toString());
+    Logger.log('ERROR in sendPhotoNotification: ' + error.toString());
+    Logger.log('Error stack: ' + error.stack);
     // Don't throw - notification failure shouldn't break upload
   }
 }
@@ -570,4 +576,42 @@ function testScript() {
   const photos = getPhotos('');
   Logger.log(photos);
   Logger.log('Done!');
+}
+
+/**
+ * Test function to debug timezone and email - run this from Apps Script editor
+ */
+function testTimezoneAndEmail() {
+  const now = new Date();
+  Logger.log('=== TIMEZONE TEST ===');
+  Logger.log('Raw Date object: ' + now);
+  Logger.log('toISOString (UTC): ' + now.toISOString());
+  Logger.log('Script timezone setting: ' + Session.getScriptTimeZone());
+  Logger.log('Formatted with America/Chicago: ' + Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy hh:mm:ss a'));
+  Logger.log('Formatted with UTC: ' + Utilities.formatDate(now, 'UTC', 'MM/dd/yyyy hh:mm:ss a'));
+  
+  Logger.log('\n=== EMAIL TEST ===');
+  // Test getting notification emails
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Notifications');
+  if (sheet) {
+    const data = sheet.getDataRange().getValues();
+    Logger.log('Notifications sheet data:');
+    for (let i = 0; i < data.length; i++) {
+      Logger.log('Row ' + i + ': ' + JSON.stringify(data[i]));
+    }
+  } else {
+    Logger.log('Notifications sheet does not exist');
+  }
+  
+  // Test sending email to yourself
+  Logger.log('\nAttempting to send test email...');
+  try {
+    const testEmail = Session.getActiveUser().getEmail();
+    Logger.log('Sending to: ' + testEmail);
+    MailApp.sendEmail(testEmail, 'Test Email from Traffic App', 'This is a test email to verify email sending works.');
+    Logger.log('Test email sent successfully!');
+  } catch (e) {
+    Logger.log('Failed to send test email: ' + e.toString());
+  }
 }
