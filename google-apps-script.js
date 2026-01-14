@@ -50,7 +50,7 @@ function doPost(e) {
         result = uploadPhoto(data.storeName, data.mobileExpertName, data.photoData, data.fileName);
         break;
       case 'getPhotos':
-        result = getPhotos(data.storeName);
+        result = getPhotos(data.storeName, data.includeDeleted);
         break;
       case 'deletePhoto':
         result = deletePhoto(data.fileId, data.storeName);
@@ -74,7 +74,8 @@ function doGet(e) {
 
   if (action === 'getPhotos') {
     const storeName = e.parameter.storeName;
-    const result = getPhotos(storeName);
+    const includeDeleted = e.parameter.includeDeleted === 'true';
+    const result = getPhotos(storeName, includeDeleted);
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -100,6 +101,7 @@ function getOrCreateFolder() {
 
 /**
  * Gets or creates the Photo Log sheet
+ * Columns: Store Name, Mobile Expert, Date, Time, File Name, File URL, File ID, Deleted
  */
 function getOrCreatePhotoLogSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -107,10 +109,16 @@ function getOrCreatePhotoLogSheet() {
 
   if (!sheet) {
     sheet = ss.insertSheet(PHOTO_LOG_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 7).setValues([[
-      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID'
+    sheet.getRange(1, 1, 1, 8).setValues([[
+      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID', 'Deleted'
     ]]);
     sheet.setFrozenRows(1);
+  } else {
+    // Check if Deleted column exists, add if not (for existing sheets)
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    if (headers.length < 8 || headers[7] !== 'Deleted') {
+      sheet.getRange(1, 8).setValue('Deleted');
+    }
   }
 
   return sheet;
@@ -163,8 +171,10 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
 
 /**
  * Gets all photos for a store (or all photos if storeName is empty/null)
+ * @param {string} storeName - Filter by store name (empty for all)
+ * @param {boolean} includeDeleted - If true, includes soft-deleted photos (for counting)
  */
-function getPhotos(storeName) {
+function getPhotos(storeName, includeDeleted) {
   try {
     const sheet = getOrCreatePhotoLogSheet();
     const data = sheet.getDataRange().getValues();
@@ -173,6 +183,12 @@ function getPhotos(storeName) {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const photoStoreName = row[0];
+      const isDeleted = row[7] === 'Yes' || row[7] === true;
+
+      // Skip deleted photos unless includeDeleted is true
+      if (isDeleted && !includeDeleted) {
+        continue;
+      }
 
       // Filter by store if provided
       if (storeName && photoStoreName !== storeName) {
@@ -202,7 +218,8 @@ function getPhotos(storeName) {
         time: timeStr,
         fileName: row[4],
         fileUrl: row[5],
-        fileId: row[6]
+        fileId: row[6],
+        deleted: isDeleted
       });
     }
 
@@ -216,21 +233,28 @@ function getPhotos(storeName) {
 }
 
 /**
- * Deletes a photo from Drive and removes from log
+ * Soft-deletes a photo - removes from Drive but keeps record for reporting
+ * Marks the row as deleted instead of removing it
  */
 function deletePhoto(fileId, storeName) {
   try {
-    // Delete from Drive
-    const file = DriveApp.getFileById(fileId);
-    file.setTrashed(true);
+    // Delete from Drive (frees up storage)
+    try {
+      const file = DriveApp.getFileById(fileId);
+      file.setTrashed(true);
+    } catch (driveError) {
+      // File may already be deleted, continue with soft delete
+      Logger.log('Drive file not found or already deleted: ' + driveError.toString());
+    }
 
-    // Remove from Photo Log
+    // Soft delete - mark as deleted in Photo Log (keeps record for reporting)
     const sheet = getOrCreatePhotoLogSheet();
     const data = sheet.getDataRange().getValues();
 
-    for (let i = data.length - 1; i >= 1; i--) {
+    for (let i = 1; i < data.length; i++) {
       if (data[i][6] === fileId) {
-        sheet.deleteRow(i + 1);
+        // Mark column 8 (Deleted) as "Yes"
+        sheet.getRange(i + 1, 8).setValue('Yes');
         break;
       }
     }

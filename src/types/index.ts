@@ -30,6 +30,7 @@ export interface Photo {
   fileName: string;
   fileUrl: string;
   fileId: string;
+  deleted?: boolean;
 }
 
 // Store password (from Google Sheet)

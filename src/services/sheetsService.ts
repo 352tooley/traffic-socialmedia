@@ -558,8 +558,10 @@ export async function uploadPhoto(
 
 /**
  * Gets photos for a store (or all photos if storeName is empty)
+ * @param storeName - Filter by store name (empty for all)
+ * @param includeDeleted - If true, includes soft-deleted photos (for counting uploads)
  */
-export async function getPhotos(storeName?: string): Promise<Photo[]> {
+export async function getPhotos(storeName?: string, includeDeleted: boolean = false): Promise<Photo[]> {
   if (!APPS_SCRIPT_URL) {
     return [];
   }
@@ -572,6 +574,7 @@ export async function getPhotos(storeName?: string): Promise<Photo[]> {
       body: JSON.stringify({
         action: 'getPhotos',
         storeName: storeName || '',
+        includeDeleted,
       }),
     });
 
@@ -632,9 +635,11 @@ function parseDateForFiltering(dateStr: string): { month: number; year: number }
 
 /**
  * Gets upload stats for mobile experts, optionally filtered by store and current month
+ * Always includes deleted photos to maintain accurate upload counts
  */
 export async function getMobileExpertStats(storeName?: string, currentMonthOnly: boolean = true): Promise<MobileExpertStats[]> {
-  const photos = await getPhotos(storeName);
+  // Include deleted photos so counts persist after deletion
+  const photos = await getPhotos(storeName, true);
 
   // Filter to current month if requested
   const filteredPhotos = currentMonthOnly
