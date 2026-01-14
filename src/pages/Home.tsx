@@ -1,42 +1,15 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMobileExpertStats, getStoreList } from '../services/sheetsService';
-import type { MobileExpertStats } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './Home.css';
 
 export function Home() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [expertStats, setExpertStats] = useState<MobileExpertStats[]>([]);
-  const [selectedStore, setSelectedStore] = useState('');
-  const [loadingStats, setLoadingStats] = useState(false);
 
   const isDM = session?.role === 'dm';
   const isStore = session?.role === 'store';
   const isMobileExpert = session?.role === 'mobile_expert';
-
-  const storeList = getStoreList();
-  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-
-  useEffect(() => {
-    if (isDM) {
-      loadExpertStats();
-    }
-  }, [isDM, selectedStore]);
-
-  const loadExpertStats = async () => {
-    setLoadingStats(true);
-    try {
-      const stats = await getMobileExpertStats(selectedStore || '', true);
-      setExpertStats(stats);
-    } catch (err) {
-      console.error('Error loading expert stats:', err);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
 
   return (
     <Layout title="Home">
@@ -156,57 +129,6 @@ export function Home() {
             </>
           )}
         </div>
-
-        {/* Mobile Expert Upload Stats - DM only */}
-        {isDM && (
-          <div className="home__experts">
-            <div className="home__experts-header">
-              <h3 className="home__experts-title">
-                Mobile Expert Uploads - {currentMonth}
-              </h3>
-              <select
-                value={selectedStore}
-                onChange={(e) => setSelectedStore(e.target.value)}
-                className="home__experts-filter"
-              >
-                <option value="">All Stores</option>
-                {storeList.map((store) => (
-                  <option key={store} value={store}>
-                    {store}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {loadingStats ? (
-              <p className="home__experts-loading">Loading stats...</p>
-            ) : expertStats.length === 0 ? (
-              <p className="home__experts-empty">
-                No uploads this month{selectedStore ? ` for ${selectedStore}` : ''}.
-              </p>
-            ) : (
-              <div className="home__experts-list">
-                {expertStats.map((stat, index) => (
-                  <div key={`${stat.storeName}-${stat.mobileExpert}-${index}`} className="home__expert-row">
-                    <div className="home__expert-info">
-                      <span className="home__expert-name">{stat.mobileExpert}</span>
-                      {!selectedStore && (
-                        <span className="home__expert-store">{stat.storeName}</span>
-                      )}
-                    </div>
-                    <span className="home__expert-count">
-                      {stat.uploadCount} upload{stat.uploadCount !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <p className="home__experts-total">
-              Total: {expertStats.reduce((sum, s) => sum + s.uploadCount, 0)} uploads from {expertStats.length} mobile expert{expertStats.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-        )}
       </div>
     </Layout>
   );

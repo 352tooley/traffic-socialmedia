@@ -12,6 +12,41 @@
   margin-bottom: 1rem;
 }
 
+/* Store Filter for DM */
+.reporting-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.reporting-filter label {
+  font-weight: 500;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.reporting-filter__select {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: white;
+  color: #1e293b;
+  cursor: pointer;
+  max-width: 300px;
+}
+
+.reporting-filter__select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 .reporting-section-title {
   font-size: 1.25rem;
   font-weight: 600;
@@ -92,9 +127,20 @@
   border-radius: 8px;
 }
 
+.reporting-expert-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .reporting-expert-row__name {
   font-weight: 500;
   color: #1e293b;
+}
+
+.reporting-expert-row__store {
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .reporting-expert-row__count {

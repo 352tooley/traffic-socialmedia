@@ -146,9 +146,6 @@ export function DownloadPhotos() {
               <p>
                 Are you sure you want to delete this photo by <strong>{confirmDelete.mobileExpert}</strong>?
               </p>
-              <p className="download-modal__warning">
-                This will remove the photo from Google Drive and cannot be undone.
-              </p>
               <div className="download-modal__actions">
                 <Button variant="secondary" onClick={handleDeleteCancel}>
                   Cancel
