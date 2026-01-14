@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreRoster, addToRoster, removeFromRoster, clearCache } from '../services/sheetsService';
+import { getStoreRoster, addToRoster, removeFromRoster, clearCache, getNotificationEmail, setNotificationEmail } from '../services/sheetsService';
 import { APPS_SCRIPT_URL } from '../config';
 import { Layout, Button } from '../components';
 import './Roster.css';
@@ -16,6 +16,9 @@ export function Roster() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [savedEmail, setSavedEmail] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
 
   // Get store name from URL params (for DM viewing specific store) or session
   const urlStoreName = searchParams.get('store');
@@ -30,6 +33,7 @@ export function Roster() {
       return;
     }
     loadRoster();
+    loadNotificationEmail();
   }, [session, navigate, storeName]);
 
   const loadRoster = async () => {
@@ -43,6 +47,36 @@ export function Roster() {
       setError('Failed to load roster');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadNotificationEmail = async () => {
+    try {
+      const email = await getNotificationEmail(storeName);
+      setNotifyEmail(email);
+      setSavedEmail(email);
+    } catch (err) {
+      console.error('Error loading notification email:', err);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    setSavingEmail(true);
+    try {
+      const success = await setNotificationEmail(storeName, notifyEmail.trim());
+      if (success) {
+        setSavedEmail(notifyEmail.trim());
+        setMessage(notifyEmail.trim() ? 'Email notifications enabled!' : 'Email notifications disabled.');
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setError('Failed to save email');
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch (err) {
+      setError('Failed to save email');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setSavingEmail(false);
     }
   };
 
@@ -184,6 +218,34 @@ export function Roster() {
         <p className="roster-hint">
           Mobile experts will see their name in a dropdown when they sign in to upload photos.
         </p>
+
+        {/* Email Notifications */}
+        <div className="roster-notifications">
+          <h3>📧 Photo Upload Notifications</h3>
+          <p className="roster-notifications__hint">
+            Get an email with a direct link whenever a mobile expert uploads a photo.
+          </p>
+          <div className="roster-notifications__input">
+            <input
+              type="email"
+              value={notifyEmail}
+              onChange={(e) => setNotifyEmail(e.target.value)}
+              placeholder="Enter your email address"
+              disabled={savingEmail}
+            />
+            <Button 
+              onClick={handleSaveEmail} 
+              disabled={savingEmail || notifyEmail === savedEmail}
+            >
+              {savingEmail ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+          {savedEmail && (
+            <p className="roster-notifications__status">
+              ✅ Notifications will be sent to: <strong>{savedEmail}</strong>
+            </p>
+          )}
+        </div>
       </div>
     </Layout>
   );

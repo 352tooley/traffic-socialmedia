@@ -27,7 +27,9 @@ const ROSTER_SHEET_NAME = 'Roster';
 const PASSWORDS_SHEET_NAME = 'Passwords';
 const TRAFFIC_SHEET_NAME = 'Traffic Log';
 const PHOTO_LOG_SHEET_NAME = 'Photo Log';
+const NOTIFICATIONS_SHEET_NAME = 'Notifications';
 const DRIVE_FOLDER_NAME = 'Traffic Social Media Photos';
+const TIMEZONE = 'America/Chicago'; // Central Time
 
 // ============ WEB APP HANDLERS ============
 
@@ -57,6 +59,12 @@ function doPost(e) {
         break;
       case 'getRoster':
         result = getRoster(data.storeName);
+        break;
+      case 'getNotificationEmail':
+        result = getNotificationEmail(data.storeName);
+        break;
+      case 'setNotificationEmail':
+        result = setNotificationEmail(data.storeName, data.email);
         break;
       default:
         result = { success: false, error: 'Unknown action' };
@@ -145,10 +153,10 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
     // Make file viewable by anyone with link
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
-    // Get current date/time
+    // Get current date/time in Central Time
     const now = new Date();
-    const date = Utilities.formatDate(now, Session.getScriptTimeZone(), 'MM/dd/yyyy');
-    const time = Utilities.formatDate(now, Session.getScriptTimeZone(), 'hh:mm a');
+    const date = Utilities.formatDate(now, TIMEZONE, 'MM/dd/yyyy');
+    const time = Utilities.formatDate(now, TIMEZONE, 'hh:mm a');
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
@@ -161,6 +169,9 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
       file.getUrl(),
       file.getId()
     ]);
+
+    // Send email notification to RSM (if configured)
+    sendPhotoNotification(storeName, mobileExpertName, file.getUrl(), date, time);
 
     return {
       success: true,
@@ -201,7 +212,7 @@ function getPhotos(storeName, includeDeleted) {
       // Format date properly - Google Sheets may return Date objects
       let dateStr = row[2];
       if (dateStr instanceof Date) {
-        dateStr = Utilities.formatDate(dateStr, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
       } else if (dateStr) {
         dateStr = String(dateStr);
       }
@@ -209,7 +220,7 @@ function getPhotos(storeName, includeDeleted) {
       // Format time properly
       let timeStr = row[3];
       if (timeStr instanceof Date) {
-        timeStr = Utilities.formatDate(timeStr, Session.getScriptTimeZone(), 'hh:mm a');
+        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
       } else if (timeStr) {
         timeStr = String(timeStr);
       }
@@ -373,6 +384,108 @@ function updatePassword(storeName, password) {
 
   sheet.appendRow([storeName, password]);
   return { success: true };
+}
+
+// ============ NOTIFICATION FUNCTIONS ============
+
+/**
+ * Gets or creates the Notifications sheet
+ * Columns: Store Name, Email
+ */
+function getOrCreateNotificationsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(NOTIFICATIONS_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(NOTIFICATIONS_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 2).setValues([['Store Name', 'Email']]);
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Gets the notification email for a store
+ */
+function getNotificationEmail(storeName) {
+  try {
+    const sheet = getOrCreateNotificationsSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === storeName) {
+        return { success: true, email: data[i][1] || '' };
+      }
+    }
+
+    return { success: true, email: '' };
+  } catch (error) {
+    return { success: false, error: error.toString(), email: '' };
+  }
+}
+
+/**
+ * Sets the notification email for a store
+ */
+function setNotificationEmail(storeName, email) {
+  try {
+    const sheet = getOrCreateNotificationsSheet();
+    const data = sheet.getDataRange().getValues();
+
+    // Check if store already exists
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === storeName) {
+        sheet.getRange(i + 1, 2).setValue(email);
+        return { success: true };
+      }
+    }
+
+    // Add new row
+    sheet.appendRow([storeName, email]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Sends email notification when a photo is uploaded
+ */
+function sendPhotoNotification(storeName, mobileExpertName, fileUrl, date, time) {
+  try {
+    const result = getNotificationEmail(storeName);
+    if (!result.success || !result.email) {
+      return; // No email configured, skip notification
+    }
+
+    const email = result.email;
+    const subject = `📸 New Photo Upload - ${storeName}`;
+    const body = `
+A new photo has been uploaded!
+
+Store: ${storeName}
+Mobile Expert: ${mobileExpertName}
+Date: ${date}
+Time: ${time}
+
+View Photo: ${fileUrl}
+
+---
+Traffic Social Media App
+    `.trim();
+
+    MailApp.sendEmail({
+      to: email,
+      subject: subject,
+      body: body
+    });
+
+    Logger.log('Notification sent to ' + email);
+  } catch (error) {
+    Logger.log('Failed to send notification: ' + error.toString());
+    // Don't throw - notification failure shouldn't break upload
+  }
 }
 
 // ============ TRAFFIC DATA CLEANUP ============

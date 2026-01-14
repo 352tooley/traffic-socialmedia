@@ -509,6 +509,63 @@ export async function resetStorePassword(storeName: string): Promise<boolean> {
   return updateStorePassword(storeName, DEFAULT_STORE_PASSWORD);
 }
 
+// ==================== NOTIFICATION FUNCTIONS ====================
+
+/**
+ * Gets the notification email for a store
+ */
+export async function getNotificationEmail(storeName: string): Promise<string> {
+  if (!APPS_SCRIPT_URL) {
+    return '';
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getNotificationEmail',
+        storeName,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success ? result.email : '';
+  } catch (error) {
+    console.error('Error getting notification email:', error);
+    return '';
+  }
+}
+
+/**
+ * Sets the notification email for a store
+ */
+export async function setNotificationEmail(storeName: string, email: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'setNotificationEmail',
+        storeName,
+        email,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error setting notification email:', error);
+    return false;
+  }
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 
 /**
