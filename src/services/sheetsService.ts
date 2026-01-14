@@ -2,10 +2,11 @@ import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST
 import type { StoreMetrics, StoreRoster, StoreAuth, Photo } from '../types';
 
 // Header names to look for (case-insensitive matching)
+// Supports multiple naming conventions
 const HEADER_DISTRICT = 'District';
-const HEADER_STORE_NAME = 'Store Name';
-const HEADER_COUNT = 'Count';
-const HEADER_TRAFFIC = 'Traffic';
+const HEADER_STORE_NAME_VARIANTS = ['Store Name', 'store', 'storeName'];
+const HEADER_COUNT_VARIANTS = ['Count', 'count', 'submissions', 'Submissions'];
+const HEADER_TRAFFIC_VARIANTS = ['Traffic', 'traffic', 'exitTraffic', 'exittraffic'];
 
 // Cache to prevent repeated fetches
 let metricsCache: { data: StoreMetrics[]; timestamp: number } | null = null;
@@ -61,15 +62,15 @@ function parseCSV(csvText: string): StoreMetrics[] {
     headerMap[header.trim()] = index;
   });
 
-  // Validate required headers exist
+  // Validate required headers exist (supports multiple naming conventions)
   const districtIndex = findHeaderIndex(headerMap, HEADER_DISTRICT);
-  const storeNameIndex = findHeaderIndex(headerMap, HEADER_STORE_NAME);
-  const countIndex = findHeaderIndex(headerMap, HEADER_COUNT);
-  const trafficIndex = findHeaderIndex(headerMap, HEADER_TRAFFIC);
+  const storeNameIndex = findHeaderIndex(headerMap, HEADER_STORE_NAME_VARIANTS);
+  const countIndex = findHeaderIndex(headerMap, HEADER_COUNT_VARIANTS);
+  const trafficIndex = findHeaderIndex(headerMap, HEADER_TRAFFIC_VARIANTS);
 
-  if (storeNameIndex === -1 || countIndex === -1 || trafficIndex === -1) {
+  if (storeNameIndex === -1 || trafficIndex === -1) {
     console.error('Missing required headers. Found:', Object.keys(headerMap));
-    throw new Error('CSV missing required headers: Store Name, Count, or Traffic');
+    throw new Error('CSV missing required headers: store/Store Name or traffic/exitTraffic');
   }
 
   // Use a Map to deduplicate - LAST occurrence wins (newest data)
@@ -89,7 +90,8 @@ function parseCSV(csvText: string): StoreMetrics[] {
       continue;
     }
 
-    const submissions = parseNumber(values[countIndex]);
+    // Count column may not exist - default to 0 if missing
+    const submissions = countIndex !== -1 ? parseNumber(values[countIndex]) : 0;
     const traffic = parseNumber(values[trafficIndex]);
 
     // Compute submissions per 100
@@ -111,17 +113,21 @@ function parseCSV(csvText: string): StoreMetrics[] {
 }
 
 /**
- * Finds header index, case-insensitive
+ * Finds header index, case-insensitive, supports multiple name variants
  */
-function findHeaderIndex(headerMap: Record<string, number>, headerName: string): number {
-  if (headerMap[headerName] !== undefined) {
-    return headerMap[headerName];
-  }
+function findHeaderIndex(headerMap: Record<string, number>, headerNames: string | string[]): number {
+  const names = Array.isArray(headerNames) ? headerNames : [headerNames];
+  
+  for (const headerName of names) {
+    if (headerMap[headerName] !== undefined) {
+      return headerMap[headerName];
+    }
 
-  const lowerName = headerName.toLowerCase();
-  for (const [key, value] of Object.entries(headerMap)) {
-    if (key.toLowerCase() === lowerName) {
-      return value;
+    const lowerName = headerName.toLowerCase();
+    for (const [key, value] of Object.entries(headerMap)) {
+      if (key.toLowerCase() === lowerName) {
+        return value;
+      }
     }
   }
 
@@ -206,9 +212,9 @@ export async function getDistrictTotals(): Promise<StoreMetrics | null> {
       headerMap[header.trim()] = index;
     });
 
-    const storeNameIndex = findHeaderIndex(headerMap, HEADER_STORE_NAME);
-    const countIndex = findHeaderIndex(headerMap, HEADER_COUNT);
-    const trafficIndex = findHeaderIndex(headerMap, HEADER_TRAFFIC);
+    const storeNameIndex = findHeaderIndex(headerMap, HEADER_STORE_NAME_VARIANTS);
+    const countIndex = findHeaderIndex(headerMap, HEADER_COUNT_VARIANTS);
+    const trafficIndex = findHeaderIndex(headerMap, HEADER_TRAFFIC_VARIANTS);
 
     // Find the Total row
     for (let i = 1; i < lines.length; i++) {
@@ -374,18 +380,48 @@ function parseRosterCSV(csvText: string): StoreRoster[] {
     mobileExperts: [] 
   }));
 
-  // Skip header row if present
-  const startIndex = lines[0]?.toLowerCase().includes('store') ? 1 : 0;
+  if (lines.length < 1) return Array.from(rosterMap.entries()).map(([storeName, data]) => ({
+    storeName,
+    district: data.district,
+    mobileExperts: data.mobileExperts,
+  }));
+
+  // Parse headers to determine column indices
+  const headers = parseCSVLine(lines[0]);
+  const headerMap: Record<string, number> = {};
+  headers.forEach((header, index) => {
+    headerMap[header.trim().toLowerCase()] = index;
+  });
+
+  // Find column indices (case-insensitive)
+  const districtIndex = headerMap['district'] ?? -1;
+  const storeIndex = headerMap['store name'] ?? headerMap['store'] ?? headerMap['storename'] ?? -1;
+  const meIndex = headerMap['mobile expert name'] ?? headerMap['mobile expert'] ?? headerMap['name'] ?? headerMap['mobileexpertname'] ?? -1;
+
+  // If we can't find headers, try position-based parsing
+  const useHeaders = storeIndex !== -1 && meIndex !== -1;
+  const startIndex = useHeaders || lines[0]?.toLowerCase().includes('store') ? 1 : 0;
 
   for (let i = startIndex; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
     if (values.length < 2) continue;
 
-    // Check if we have district column (3 values) or old format (2 values)
-    const hasDistrict = values.length >= 3;
-    const district = (hasDistrict ? values[0]?.trim() : 'West') as District;
-    const storeName = hasDistrict ? values[1]?.trim() : values[0]?.trim();
-    const mobileExpertName = hasDistrict ? values[2]?.trim() : values[1]?.trim();
+    let district: District;
+    let storeName: string;
+    let mobileExpertName: string;
+
+    if (useHeaders) {
+      // Use header-based indices
+      district = (districtIndex !== -1 ? values[districtIndex]?.trim() : 'West') as District || 'West';
+      storeName = values[storeIndex]?.trim() || '';
+      mobileExpertName = values[meIndex]?.trim() || '';
+    } else {
+      // Fall back to position-based (check if district column exists)
+      const hasDistrict = values.length >= 3 && values[0]?.trim().toLowerCase() !== '';
+      district = (hasDistrict ? values[0]?.trim() : 'West') as District || 'West';
+      storeName = hasDistrict ? values[1]?.trim() : values[0]?.trim();
+      mobileExpertName = hasDistrict ? values[2]?.trim() : values[1]?.trim();
+    }
 
     if (storeName && mobileExpertName) {
       if (!rosterMap.has(storeName)) {
