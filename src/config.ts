@@ -35,10 +35,25 @@ export const DISTRICT_STORES: Record<District, string[]> = {
     '28th Street',
   ],
   South: [
-    // TODO: Add South district stores here
+    'South Store 1',
+    'South Store 2',
+    'South Store 3',
+    'South Store 4',
+    'South Store 5',
+    'South Store 6',
+    'South Store 7',
+    'South Store 8',
   ],
   North: [
-    // TODO: Add North district stores here
+    'North Store 1',
+    'North Store 2',
+    'North Store 3',
+    'North Store 4',
+    'North Store 5',
+    'North Store 6',
+    'North Store 7',
+    'North Store 8',
+    'North Store 9',
   ],
 };
 
