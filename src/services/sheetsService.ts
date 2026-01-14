@@ -1,5 +1,5 @@
 import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST, DEFAULT_STORE_PASSWORD } from '../config';
-import type { StoreMetrics, StoreRoster, StoreAuth } from '../types';
+import type { StoreMetrics, StoreRoster, StoreAuth, Photo } from '../types';
 
 // Header names to look for (case-insensitive matching)
 const HEADER_STORE_NAME = 'Store Name';
@@ -517,4 +517,99 @@ export function clearCache() {
  */
 export function getStoreList(): string[] {
   return STORE_LIST;
+}
+
+// ==================== PHOTO FUNCTIONS ====================
+
+/**
+ * Uploads a photo to Google Drive via Apps Script
+ */
+export async function uploadPhoto(
+  storeName: string,
+  mobileExpertName: string,
+  photoData: string,
+  fileName: string
+): Promise<{ success: boolean; fileUrl?: string; error?: string }> {
+  if (!APPS_SCRIPT_URL) {
+    return { success: false, error: 'Apps Script URL not configured' };
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'uploadPhoto',
+        storeName,
+        mobileExpertName,
+        photoData,
+        fileName,
+      }),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error uploading photo:', error);
+    return { success: false, error: 'Upload failed' };
+  }
+}
+
+/**
+ * Gets photos for a store (or all photos if storeName is empty)
+ */
+export async function getPhotos(storeName?: string): Promise<Photo[]> {
+  if (!APPS_SCRIPT_URL) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getPhotos',
+        storeName: storeName || '',
+      }),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      return result.photos;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error fetching photos:', error);
+    return [];
+  }
+}
+
+/**
+ * Deletes a photo from Google Drive
+ */
+export async function deletePhoto(fileId: string, storeName: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'deletePhoto',
+        fileId,
+        storeName,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error deleting photo:', error);
+    return false;
+  }
 }

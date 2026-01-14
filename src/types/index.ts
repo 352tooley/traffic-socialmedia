@@ -21,13 +21,15 @@ export interface StoreRoster {
   mobileExperts: string[];
 }
 
-// Photo submission
-export interface Submission {
-  id: string;
+// Photo from Google Drive/Sheet
+export interface Photo {
   storeName: string;
-  mobileExpertName: string;
-  imageData: string;
-  timestamp: Date;
+  mobileExpert: string;
+  date: string;
+  time: string;
+  fileName: string;
+  fileUrl: string;
+  fileId: string;
 }
 
 // Store password (from Google Sheet)

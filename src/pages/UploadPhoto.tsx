@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { uploadPhoto } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './UploadPhoto.css';
 
@@ -7,7 +8,9 @@ export function UploadPhoto() {
   const { session } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -20,6 +23,7 @@ export function UploadPhoto() {
     if (file) {
       setSelectedFile(file);
       setPreview(URL.createObjectURL(file));
+      setError('');
     }
   };
 
@@ -34,37 +38,65 @@ export function UploadPhoto() {
   const handleClearPhoto = () => {
     setSelectedFile(null);
     setPreview(null);
+    setError('');
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedFile) {
-      alert('Please select a photo');
+      setError('Please select a photo');
       return;
     }
 
-    // Download the photo with metadata in filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${storeName}_${mobileExpertName}_${timestamp}.jpg`;
+    setUploading(true);
+    setError('');
 
-    // Create download link
-    const link = document.createElement('a');
-    link.href = preview!;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Convert file to base64
+      const photoData = await fileToBase64(selectedFile);
 
-    setSuccess(true);
+      // Create filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `${storeName}_${mobileExpertName}_${timestamp}.jpg`;
+
+      // Upload to Google Drive
+      const result = await uploadPhoto(storeName, mobileExpertName, photoData, fileName);
+
+      if (result.success) {
+        setSuccess(true);
+      } else {
+        setError(result.error || 'Upload failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError('Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleUploadAnother = () => {
     setSuccess(false);
     setSelectedFile(null);
     setPreview(null);
+    setError('');
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
@@ -79,8 +111,8 @@ export function UploadPhoto() {
               <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
-          <h2>Photo Saved!</h2>
-          <p>Your photo has been downloaded with the correct naming format.</p>
+          <h2>Photo Uploaded!</h2>
+          <p>Your photo has been saved to Google Drive.</p>
           <Button variant="large" onClick={handleUploadAnother}>
             Upload Another Photo
           </Button>
@@ -101,6 +133,8 @@ export function UploadPhoto() {
               Mobile Expert: <strong>{mobileExpertName}</strong>
             </div>
           </div>
+
+          {error && <div className="upload-form__error">{error}</div>}
 
           <div className="upload-form__photo-section">
             <label>Photo *</label>
@@ -129,6 +163,7 @@ export function UploadPhoto() {
                   type="button"
                   className="upload-form__clear-btn"
                   onClick={handleClearPhoto}
+                  disabled={uploading}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -142,6 +177,7 @@ export function UploadPhoto() {
                   type="button"
                   className="upload-form__photo-btn"
                   onClick={handleTakePhoto}
+                  disabled={uploading}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
@@ -153,6 +189,7 @@ export function UploadPhoto() {
                   type="button"
                   className="upload-form__photo-btn"
                   onClick={handleChooseGallery}
+                  disabled={uploading}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -169,9 +206,9 @@ export function UploadPhoto() {
             type="submit"
             variant="large"
             fullWidth
-            disabled={!selectedFile}
+            disabled={!selectedFile || uploading}
           >
-            Save Photo
+            {uploading ? 'Uploading...' : 'Upload Photo'}
           </Button>
         </form>
       </div>

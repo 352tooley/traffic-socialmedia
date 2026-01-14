@@ -5,7 +5,7 @@
  * 1. Open your Google Sheet
  * 2. Go to Extensions > Apps Script
  * 3. Paste this entire script
- * 4. Click Deploy > New deployment
+ * 4. Click Deploy > New deployment (or Manage deployments > Edit)
  * 5. Select type: Web app
  * 6. Set "Execute as" to your account
  * 7. Set "Who has access" to "Anyone"
@@ -16,12 +16,18 @@
  * - "Roster" tab with columns: Store Name, Mobile Expert Name
  * - "Passwords" tab with columns: Store Name, Password
  * - "Traffic Log" tab (your main data)
+ * - "Photo Log" tab (created automatically)
+ *
+ * GOOGLE DRIVE:
+ * - A folder "Traffic Social Media Photos" will be created automatically
  */
 
-// Configuration - update these to match your sheet
+// Configuration
 const ROSTER_SHEET_NAME = 'Roster';
 const PASSWORDS_SHEET_NAME = 'Passwords';
 const TRAFFIC_SHEET_NAME = 'Traffic Log';
+const PHOTO_LOG_SHEET_NAME = 'Photo Log';
+const DRIVE_FOLDER_NAME = 'Traffic Social Media Photos';
 
 // ============ WEB APP HANDLERS ============
 
@@ -40,6 +46,15 @@ function doPost(e) {
       case 'updatePassword':
         result = updatePassword(data.storeName, data.password);
         break;
+      case 'uploadPhoto':
+        result = uploadPhoto(data.storeName, data.mobileExpertName, data.photoData, data.fileName);
+        break;
+      case 'getPhotos':
+        result = getPhotos(data.storeName);
+        break;
+      case 'deletePhoto':
+        result = deletePhoto(data.fileId, data.storeName);
+        break;
       default:
         result = { success: false, error: 'Unknown action' };
     }
@@ -55,10 +70,159 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  const action = e.parameter.action;
+
+  if (action === 'getPhotos') {
+    const storeName = e.parameter.storeName;
+    const result = getPhotos(storeName);
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({
     status: 'ok',
     message: 'Traffic Social Media API is running'
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============ PHOTO FUNCTIONS ============
+
+/**
+ * Gets or creates the Drive folder for photos
+ */
+function getOrCreateFolder() {
+  const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return DriveApp.createFolder(DRIVE_FOLDER_NAME);
+}
+
+/**
+ * Gets or creates the Photo Log sheet
+ */
+function getOrCreatePhotoLogSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(PHOTO_LOG_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(PHOTO_LOG_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 7).setValues([[
+      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID'
+    ]]);
+    sheet.setFrozenRows(1);
+  }
+
+  return sheet;
+}
+
+/**
+ * Uploads a photo to Google Drive and logs it
+ */
+function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
+  try {
+    const folder = getOrCreateFolder();
+
+    // Decode base64 photo data
+    const decodedData = Utilities.base64Decode(photoData);
+    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
+
+    // Create file in Drive
+    const file = folder.createFile(blob);
+    file.setDescription(`Store: ${storeName}, Mobile Expert: ${mobileExpertName}`);
+
+    // Make file viewable by anyone with link
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Get current date/time
+    const now = new Date();
+    const date = Utilities.formatDate(now, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const time = Utilities.formatDate(now, Session.getScriptTimeZone(), 'hh:mm a');
+
+    // Log to Photo Log sheet
+    const sheet = getOrCreatePhotoLogSheet();
+    sheet.appendRow([
+      storeName,
+      mobileExpertName,
+      date,
+      time,
+      fileName,
+      file.getUrl(),
+      file.getId()
+    ]);
+
+    return {
+      success: true,
+      fileUrl: file.getUrl(),
+      fileId: file.getId()
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Gets all photos for a store (or all photos if storeName is empty/null)
+ */
+function getPhotos(storeName) {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    const photos = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const photoStoreName = row[0];
+
+      // Filter by store if provided
+      if (storeName && photoStoreName !== storeName) {
+        continue;
+      }
+
+      photos.push({
+        storeName: photoStoreName,
+        mobileExpert: row[1],
+        date: row[2],
+        time: row[3],
+        fileName: row[4],
+        fileUrl: row[5],
+        fileId: row[6]
+      });
+    }
+
+    // Sort by date/time descending (newest first)
+    photos.reverse();
+
+    return { success: true, photos: photos };
+  } catch (error) {
+    return { success: false, error: error.toString(), photos: [] };
+  }
+}
+
+/**
+ * Deletes a photo from Drive and removes from log
+ */
+function deletePhoto(fileId, storeName) {
+  try {
+    // Delete from Drive
+    const file = DriveApp.getFileById(fileId);
+    file.setTrashed(true);
+
+    // Remove from Photo Log
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (data[i][6] === fileId) {
+        sheet.deleteRow(i + 1);
+        break;
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
 // ============ ROSTER FUNCTIONS ============
@@ -124,12 +288,6 @@ function updatePassword(storeName, password) {
 
 // ============ TRAFFIC DATA CLEANUP ============
 
-/**
- * IMPORTANT: Run this function to remove duplicate rows in Traffic Log
- * Keeps only the LAST (newest) occurrence of each store
- *
- * To run: Select this function from dropdown and click Run
- */
 function cleanupTrafficLog() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
@@ -146,8 +304,6 @@ function cleanupTrafficLog() {
   }
 
   const headers = data[0];
-
-  // Find Store Name column
   let storeColIndex = -1;
   for (let i = 0; i < headers.length; i++) {
     if (headers[i].toString().toLowerCase().includes('store')) {
@@ -161,16 +317,13 @@ function cleanupTrafficLog() {
     return;
   }
 
-  // Find duplicates - keep track of LAST occurrence of each store
   const lastOccurrence = new Map();
-
   for (let i = 1; i < data.length; i++) {
     const storeName = data[i][storeColIndex]?.toString().trim();
     if (!storeName || storeName.toLowerCase() === 'total') continue;
     lastOccurrence.set(storeName, i);
   }
 
-  // Find rows to delete (all except the last occurrence)
   const rowsToDelete = [];
   const seenStores = new Set();
 
@@ -179,28 +332,21 @@ function cleanupTrafficLog() {
     if (!storeName || storeName.toLowerCase() === 'total') continue;
 
     if (seenStores.has(storeName)) {
-      rowsToDelete.push(i + 1); // +1 for 1-based row index
+      rowsToDelete.push(i + 1);
     } else {
       seenStores.add(storeName);
     }
   }
 
-  // Delete from bottom up
   rowsToDelete.sort((a, b) => b - a);
   for (const row of rowsToDelete) {
     sheet.deleteRow(row);
   }
 
   Logger.log('Cleanup complete! Removed ' + rowsToDelete.length + ' duplicate rows.');
-  Logger.log('Kept newest data for ' + seenStores.size + ' stores.');
 }
 
-/**
- * Set up automatic daily cleanup at 6 AM
- * Run this once to enable auto-cleanup
- */
 function setupDailyCleanup() {
-  // Remove existing triggers
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(trigger => {
     if (trigger.getHandlerFunction() === 'cleanupTrafficLog') {
@@ -208,7 +354,6 @@ function setupDailyCleanup() {
     }
   });
 
-  // Create new daily trigger
   ScriptApp.newTrigger('cleanupTrafficLog')
     .timeBased()
     .everyDays(1)
@@ -218,11 +363,9 @@ function setupDailyCleanup() {
   Logger.log('Daily cleanup scheduled for 6 AM');
 }
 
-/**
- * Test function
- */
 function testScript() {
-  Logger.log('Testing cleanup...');
-  cleanupTrafficLog();
+  Logger.log('Testing...');
+  const photos = getPhotos('');
+  Logger.log(photos);
   Logger.log('Done!');
 }
