@@ -11,6 +11,7 @@ import {
   StoreDetail,
   Roster,
   Passwords,
+  ModifyDistrict,
 } from './pages';
 import { Approvals } from './pages/Approvals';
 import './App.css';
@@ -93,6 +94,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Approvals />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/district-modify"
+        element={
+          <ProtectedRoute>
+            <ModifyDistrict />
           </ProtectedRoute>
         }
       />

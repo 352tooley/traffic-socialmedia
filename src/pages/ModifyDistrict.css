@@ -1,0 +1,140 @@
+.modify-district-page {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.modify-district-page h2 {
+  font-size: 1.25rem;
+  color: #1e293b;
+  margin: 0 0 1.5rem 0;
+}
+
+.modify-district-message {
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.modify-district-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.modify-district-loading {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.modify-district-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.modify-district-controls {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.modify-district-field label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.4rem;
+}
+
+.modify-district-field input,
+.modify-district-field select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: white;
+}
+
+.modify-district-field input:focus,
+.modify-district-field select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.modify-district-list {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.modify-district-list h3 {
+  font-size: 1rem;
+  color: #475569;
+  margin: 0 0 1rem 0;
+}
+
+.modify-district-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.modify-district-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+.modify-district-row:last-child {
+  border-bottom: none;
+}
+
+.modify-district-remove {
+  background: none;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modify-district-remove:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.modify-district-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modify-district-empty {
+  color: #94a3b8;
+  text-align: center;
+  padding: 1rem 0;
+}

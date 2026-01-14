@@ -8,3 +8,4 @@ export { StoreDetail } from './StoreDetail';
 export { Roster } from './Roster';
 export { Passwords } from './Passwords';
 export { Approvals } from './Approvals';
+export { ModifyDistrict } from './ModifyDistrict';

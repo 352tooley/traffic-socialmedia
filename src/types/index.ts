@@ -48,3 +48,8 @@ export interface StoreAuth {
   district: District;
   password: string;
 }
+
+export interface StoreEntry {
+  storeName: string;
+  district: District;
+}

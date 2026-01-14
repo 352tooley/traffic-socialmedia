@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreList, getStoreRoster } from '../services/sheetsService';
+import { fetchStoreList, getStoreRoster } from '../services/sheetsService';
 import { DISTRICTS, type District } from '../config';
 import { Button } from '../components';
 import { PhotoHero } from '../components/PhotoHero';
@@ -18,11 +18,11 @@ export function Login() {
   const [error, setError] = useState('');
   const [roster, setRoster] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stores, setStores] = useState<string[]>([]);
+  const [storesLoading, setStoresLoading] = useState(false);
 
   const navigate = useNavigate();
   const { loginAsMobileExpert, loginAsStore, loginAsDM, session } = useAuth();
-
-  const stores = getStoreList(selectedDistrict);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -37,6 +37,25 @@ export function Login() {
       loadRoster(selectedStore);
     }
   }, [selectedStore, mode]);
+
+  useEffect(() => {
+    if (mode === 'mobile_expert' || mode === 'store') {
+      loadStores(selectedDistrict);
+    }
+  }, [mode, selectedDistrict]);
+
+  const loadStores = async (district: District) => {
+    setStoresLoading(true);
+    try {
+      const storeList = await fetchStoreList(district);
+      setStores(storeList);
+    } catch (err) {
+      console.error('Error loading stores:', err);
+      setStores([]);
+    } finally {
+      setStoresLoading(false);
+    }
+  };
 
   const loadRoster = async (storeName: string) => {
     setLoading(true);
@@ -175,8 +194,11 @@ export function Login() {
             setMobileExpertName('');
             setError('');
           }}
+          disabled={storesLoading}
         >
-          <option value="">Select your store...</option>
+          <option value="">
+            {storesLoading ? 'Loading stores...' : 'Select your store...'}
+          </option>
           {stores.map((store) => (
             <option key={store} value={store}>
               {store}
@@ -259,8 +281,11 @@ export function Login() {
             setSelectedStore(e.target.value);
             setError('');
           }}
+          disabled={storesLoading}
         >
-          <option value="">Select your store...</option>
+          <option value="">
+            {storesLoading ? 'Loading stores...' : 'Select your store...'}
+          </option>
           {stores.map((store) => (
             <option key={store} value={store}>
               {store}

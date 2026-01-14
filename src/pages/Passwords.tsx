@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreList, fetchPasswords, updateStorePassword, resetStorePassword, clearCache } from '../services/sheetsService';
+import { fetchStoreList, fetchPasswords, updateStorePassword, resetStorePassword, clearCache } from '../services/sheetsService';
 import { APPS_SCRIPT_URL } from '../config';
 import type { StoreAuth } from '../types';
 import { Layout, Button } from '../components';
@@ -15,10 +15,11 @@ export function Passwords() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingStores, setLoadingStores] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [passwords, setPasswords] = useState<StoreAuth[]>([]);
+  const [stores, setStores] = useState<string[]>([]);
 
-  const stores = getStoreList();
   const isAppsScriptConfigured = Boolean(APPS_SCRIPT_URL);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function Passwords() {
       navigate('/');
       return;
     }
+    loadStores();
     loadPasswords();
   }, [session, navigate]);
 
@@ -41,6 +43,19 @@ export function Passwords() {
       setError('Failed to load passwords');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadStores = async () => {
+    setLoadingStores(true);
+    try {
+      const storeList = await fetchStoreList();
+      setStores(storeList);
+    } catch (err) {
+      console.error('Error loading stores:', err);
+      setStores([]);
+    } finally {
+      setLoadingStores(false);
     }
   };
 
@@ -120,7 +135,7 @@ export function Passwords() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingStores) {
     return (
       <Layout title="Store Passwords" showBack>
         <div className="passwords-loading">Loading passwords...</div>

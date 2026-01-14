@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, getStoreList, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
+import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, fetchStoreList, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import type { MobileExpertStats } from '../services/sheetsService';
 import { Layout, KpiCard, Loading } from '../components';
@@ -15,10 +15,11 @@ export function Reporting() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
+  const [storeList, setStoreList] = useState<string[]>([]);
+  const [storeListLoading, setStoreListLoading] = useState(false);
 
   const isDM = session?.role === 'dm';
   const storeName = session?.storeName || '';
-  const storeList = getStoreList();
 
   // For DM, use selected store filter; for store manager, use their store
   const activeStore = isDM ? selectedStore : storeName;
@@ -26,6 +27,25 @@ export function Reporting() {
   useEffect(() => {
     loadData();
   }, [storeName, selectedStore, isDM]);
+
+  useEffect(() => {
+    if (isDM) {
+      loadStoreList();
+    }
+  }, [isDM]);
+
+  const loadStoreList = async () => {
+    setStoreListLoading(true);
+    try {
+      const stores = await fetchStoreList();
+      setStoreList(stores);
+    } catch (err) {
+      console.error('Error loading store list:', err);
+      setStoreList([]);
+    } finally {
+      setStoreListLoading(false);
+    }
+  };
 
   const loadData = async () => {
     // Store managers need a store name, DM can view all or filtered
@@ -95,8 +115,11 @@ export function Reporting() {
               value={selectedStore}
               onChange={(e) => setSelectedStore(e.target.value)}
               className="reporting-filter__select"
+              disabled={storeListLoading}
             >
-              <option value="">All Stores</option>
+              <option value="">
+                {storeListLoading ? 'Loading stores...' : 'All Stores'}
+              </option>
               {storeList.map((store) => (
                 <option key={store} value={store}>
                   {store}

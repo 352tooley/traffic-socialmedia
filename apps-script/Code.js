@@ -14,6 +14,8 @@ const DRIVE_FOLDER_ID = '1eQU0tIlrPS_b9hk01hac5FfgKoIiXR3F';
 const UPLOADS_SHEET = 'Photo Log';
 const ROSTER_SHEET = 'Roster';
 const PASSWORDS_SHEET = 'Password';
+const STORES_SHEET = 'Stores';
+const DEFAULT_STORE_PASSWORD = 'password';
 
 /**
  * Main entry point for all requests
@@ -47,6 +49,12 @@ function doPost(e) {
         return getPendingPhotos();
       case 'getApprovedPhotos':
         return getApprovedPhotos();
+      case 'getStoreList':
+        return getStoreList(data);
+      case 'addStore':
+        return addStore(data);
+      case 'removeStore':
+        return removeStore(data);
       case 'getRoster':
         return getRoster(data);
       case 'addRoster':
@@ -308,6 +316,249 @@ function getPhotos(data) {
   }
 }
 
+// ==================== STORE LIST FUNCTIONS ====================
+
+function getStoresSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(STORES_SHEET);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(STORES_SHEET);
+    sheet.appendRow(['District', 'Store Name']);
+  }
+
+  const header = sheet.getRange(1, 1, 1, 2).getValues()[0];
+  const headerDistrict = String(header[0]).toLowerCase();
+  const headerStore = String(header[1]).toLowerCase();
+  if (headerDistrict !== 'district' || headerStore !== 'store name') {
+    sheet.getRange(1, 1, 1, 2).setValues([['District', 'Store Name']]);
+  }
+
+  if (sheet.getLastRow() < 2) {
+    seedStoresSheet_(sheet, ss);
+  }
+
+  return sheet;
+}
+
+function seedStoresSheet_(sheet, ss) {
+  const storeMap = {};
+  const addStore = (district, storeName) => {
+    const cleanDistrict = (district || 'West').toString().trim() || 'West';
+    const cleanStore = (storeName || '').toString().trim();
+    if (!cleanStore) return;
+    const key = cleanDistrict + '::' + cleanStore;
+    storeMap[key] = { district: cleanDistrict, storeName: cleanStore };
+  };
+
+  const passwordSheet = ss.getSheetByName(PASSWORDS_SHEET);
+  if (passwordSheet) {
+    const rows = passwordSheet.getDataRange().getValues();
+    const header = rows[0] || [];
+    const hasHeader = header.some(cell => String(cell).toLowerCase().includes('store'));
+    const startIndex = hasHeader ? 1 : 0;
+    const useDistrict = hasHeader
+      ? String(header[0]).toLowerCase().includes('district')
+      : (rows[startIndex] && rows[startIndex].length >= 3);
+
+    for (let i = startIndex; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+      const district = useDistrict ? row[0] : 'West';
+      const store = useDistrict ? row[1] : row[0];
+      addStore(district, store);
+    }
+  }
+
+  const rosterSheet = ss.getSheetByName(ROSTER_SHEET);
+  if (rosterSheet) {
+    const rows = rosterSheet.getDataRange().getValues();
+    const header = rows[0] || [];
+    const hasHeader = header.some(cell => String(cell).toLowerCase().includes('store'));
+    const startIndex = hasHeader ? 1 : 0;
+    const useDistrict = hasHeader
+      ? String(header[0]).toLowerCase().includes('district')
+      : (rows[startIndex] && rows[startIndex].length >= 3);
+
+    for (let i = startIndex; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length === 0) continue;
+      const district = useDistrict ? row[0] : 'West';
+      const store = useDistrict ? row[1] : row[0];
+      addStore(district, store);
+    }
+  }
+
+  const entries = Object.keys(storeMap).map(key => storeMap[key]);
+  if (entries.length > 0) {
+    const values = entries.map(entry => [entry.district, entry.storeName]);
+    sheet.getRange(2, 1, values.length, 2).setValues(values);
+  }
+}
+
+function getDistrictForStore_(storeName) {
+  try {
+    const sheet = getStoresSheet_();
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const store = row[1];
+      if (store === storeName) {
+        return row[0] || 'West';
+      }
+    }
+  } catch (error) {
+    Logger.log('Store list lookup failed: ' + error.toString());
+  }
+
+  return 'West';
+}
+
+function ensurePasswordRow_(district, storeName) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(PASSWORDS_SHEET);
+  if (!sheet) return;
+
+  const rows = sheet.getDataRange().getValues();
+  const header = rows[0] || [];
+  const hasHeader = header.some(cell => String(cell).toLowerCase().includes('store'));
+  const startIndex = hasHeader ? 1 : 0;
+  const useDistrict = hasHeader
+    ? String(header[0]).toLowerCase().includes('district')
+    : (rows[startIndex] && rows[startIndex].length >= 3);
+
+  for (let i = startIndex; i < rows.length; i++) {
+    const row = rows[i];
+    const rowStore = useDistrict ? row[1] : row[0];
+    const rowDistrict = useDistrict ? row[0] : 'West';
+    if (rowStore === storeName && (!useDistrict || rowDistrict === district)) {
+      return;
+    }
+  }
+
+  if (useDistrict) {
+    sheet.appendRow([district, storeName, DEFAULT_STORE_PASSWORD]);
+  } else {
+    sheet.appendRow([storeName, DEFAULT_STORE_PASSWORD]);
+  }
+}
+
+/**
+ * Gets store list entries (optionally filtered by district)
+ */
+function getStoreList(data) {
+  try {
+    const districtFilter = data && data.district ? data.district : '';
+    const sheet = getStoresSheet_();
+    const rows = sheet.getDataRange().getValues();
+    const stores = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const district = row[0];
+      const storeName = row[1];
+      if (!storeName) continue;
+      if (districtFilter && district !== districtFilter) continue;
+      stores.push({
+        district: district || 'West',
+        storeName: storeName
+      });
+    }
+
+    return respond(true, 'Store list retrieved', { stores: stores });
+  } catch (error) {
+    return respond(false, 'Error getting store list: ' + error.toString());
+  }
+}
+
+/**
+ * Adds a store to the Stores sheet and Passwords sheet
+ */
+function addStore(data) {
+  try {
+    const district = data.district || 'West';
+    const storeName = (data.storeName || '').toString().trim();
+
+    if (!storeName) {
+      return respond(false, 'Store name is required');
+    }
+
+    const sheet = getStoresSheet_();
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (row[0] === district && row[1] === storeName) {
+        return respond(false, 'Store already exists');
+      }
+    }
+
+    sheet.appendRow([district, storeName]);
+    ensurePasswordRow_(district, storeName);
+
+    return respond(true, 'Store added');
+  } catch (error) {
+    return respond(false, 'Error adding store: ' + error.toString());
+  }
+}
+
+/**
+ * Removes a store from Stores, Roster, and Passwords
+ */
+function removeStore(data) {
+  try {
+    const district = data.district || 'West';
+    const storeName = (data.storeName || '').toString().trim();
+
+    if (!storeName) {
+      return respond(false, 'Store name is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const storesSheet = getStoresSheet_();
+    const storesRows = storesSheet.getDataRange().getValues();
+
+    for (let i = storesRows.length - 1; i >= 1; i--) {
+      const row = storesRows[i];
+      if (row[0] === district && row[1] === storeName) {
+        storesSheet.deleteRow(i + 1);
+      }
+    }
+
+    const rosterSheet = ss.getSheetByName(ROSTER_SHEET);
+    if (rosterSheet) {
+      const rows = rosterSheet.getDataRange().getValues();
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const row = rows[i];
+        const hasDistrict = row.length >= 3;
+        const rowStore = hasDistrict ? row[1] : row[0];
+        const rowDistrict = hasDistrict ? row[0] : 'West';
+        if (rowStore === storeName && rowDistrict === district) {
+          rosterSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    const passwordSheet = ss.getSheetByName(PASSWORDS_SHEET);
+    if (passwordSheet) {
+      const rows = passwordSheet.getDataRange().getValues();
+      for (let i = rows.length - 1; i >= 1; i--) {
+        const row = rows[i];
+        const hasDistrict = row.length >= 3;
+        const rowStore = hasDistrict ? row[1] : row[0];
+        const rowDistrict = hasDistrict ? row[0] : 'West';
+        if (rowStore === storeName && rowDistrict === district) {
+          passwordSheet.deleteRow(i + 1);
+        }
+      }
+    }
+
+    return respond(true, 'Store removed');
+  } catch (error) {
+    return respond(false, 'Error removing store: ' + error.toString());
+  }
+}
+
 /**
  * Gets roster (optionally filtered by store)
  * Returns roster with district field
@@ -368,19 +619,7 @@ function addRoster(data) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(ROSTER_SHEET);
     const rows = sheet.getDataRange().getValues();
     
-    // Find district for this store from existing entries
-    let district = 'West'; // default
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const hasDistrict = row.length >= 3;
-      const rowStore = hasDistrict ? row[1] : row[0];
-      const rowDistrict = hasDistrict ? row[0] : 'West';
-      
-      if (rowStore === storeName) {
-        district = rowDistrict;
-        break;
-      }
-    }
+    const district = getDistrictForStore_(storeName);
 
     // NEW STRUCTURE: District | Store Name | Mobile Expert Name
     sheet.appendRow([district, storeName, mobileExpertName]);
@@ -809,6 +1048,222 @@ function respond(success, message, data) {
 
   return ContentService.createTextOutput(JSON.stringify(response))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================================
+// UTILITY FUNCTIONS - Row diagnostics and fixes
+// ============================================
+
+/**
+ * Diagnose row 13 - run this from the dropdown
+ */
+function diagnoseRow13() {
+  return diagnoseAndFixPhotoLogRow(13);
+}
+
+/**
+ * Diagnose and optionally fix a specific row in Photo Log
+ * Run from Apps Script editor to check row 13: diagnoseAndFixPhotoLogRow(13)
+ */
+function diagnoseAndFixPhotoLogRow(rowNumber) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+
+  if (!sheet) {
+    Logger.log('ERROR: Sheet "' + UPLOADS_SHEET + '" not found!');
+    return { error: 'Sheet not found' };
+  }
+
+  const lastCol = sheet.getLastColumn() || 12;
+  const rowData = sheet.getRange(rowNumber, 1, 1, lastCol).getValues()[0];
+
+  Logger.log('=== Row ' + rowNumber + ' Diagnosis ===');
+  Logger.log('Total columns: ' + lastCol);
+
+  // Log each column value
+  for (let i = 0; i < rowData.length; i++) {
+    const colLetter = String.fromCharCode(65 + i);
+    Logger.log('Column ' + colLetter + ' (' + (i + 1) + '): ' + JSON.stringify(rowData[i]));
+  }
+
+  // Expected structure (Format B):
+  // A: District, B: Store Name, C: Mobile Expert, D: Date, E: Time,
+  // F: File Name, G: File URL, H: File ID, I: deleted, J: featuredStatus, K: featuredBy, L: photoType
+
+  // Check if column B looks like a timestamp (Format A indicator)
+  const col1IsTimestamp = rowData[1] instanceof Date ||
+    (typeof rowData[1] === 'string' && rowData[1].toString().match(/^\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}/));
+
+  Logger.log('');
+  Logger.log('Column B is timestamp: ' + col1IsTimestamp);
+
+  if (col1IsTimestamp) {
+    Logger.log('Row appears to be in Format A (with timestamp column)');
+  } else {
+    Logger.log('Row appears to be in Format B (standard format)');
+  }
+
+  // Check for common issues
+  const issues = [];
+
+  // Check if District column is missing (first column should be a district name)
+  const validDistricts = ['West', 'Central', 'East', 'North', 'South'];
+  if (!validDistricts.includes(rowData[0]) && typeof rowData[0] === 'string' && !rowData[0].includes('/')) {
+    issues.push('Column A may not be a district name: ' + rowData[0]);
+  }
+
+  // Check if there's a URL in the expected position
+  const urlColIndex = col1IsTimestamp ? 7 : 6; // 0-indexed
+  if (rowData[urlColIndex] && typeof rowData[urlColIndex] === 'string' && rowData[urlColIndex].includes('drive.google.com')) {
+    Logger.log('File URL found in expected position (Column ' + String.fromCharCode(65 + urlColIndex) + ')');
+  } else {
+    // Search for URL in other columns
+    for (let i = 0; i < rowData.length; i++) {
+      if (typeof rowData[i] === 'string' && rowData[i].includes('drive.google.com')) {
+        issues.push('File URL found in Column ' + String.fromCharCode(65 + i) + ' instead of expected Column ' + String.fromCharCode(65 + urlColIndex));
+        break;
+      }
+    }
+  }
+
+  Logger.log('');
+  if (issues.length > 0) {
+    Logger.log('=== Issues Found ===');
+    issues.forEach(issue => Logger.log('- ' + issue));
+  } else {
+    Logger.log('No obvious issues detected');
+  }
+
+  return {
+    rowData: rowData,
+    isFormatA: col1IsTimestamp,
+    issues: issues
+  };
+}
+
+/**
+ * Fix row 13 - removes extra Timestamp column (B) to match Format B
+ * Row 13 has Format A (13 cols with timestamp), others have Format B (12 cols)
+ */
+function fixPhotoLogRow13() {
+  const rowNumber = 13;
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+  const lastCol = sheet.getLastColumn() || 13;
+  const rowData = sheet.getRange(rowNumber, 1, 1, lastCol).getValues()[0];
+
+  Logger.log('Current row 13 data (Format A with timestamp):');
+  for (let i = 0; i < rowData.length; i++) {
+    Logger.log('Col ' + String.fromCharCode(65 + i) + ': ' + JSON.stringify(rowData[i]));
+  }
+
+  // Row 13 Format A: District(A), Timestamp(B), Store(C), ME(D), Date(E), Time(F), FileName(G), FileURL(H), FileID(I), deleted(J), featuredStatus(K), featuredBy(L), photoType(M)
+  // Target Format B: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K), photoType(L)
+
+  // Extract values, skipping the timestamp column (index 1)
+  const district = rowData[0];      // A - keep
+  // rowData[1] is timestamp - SKIP
+  const store = rowData[2];         // C -> B
+  const me = rowData[3];            // D -> C
+  const date = rowData[4];          // E -> D (format as MM/dd/yyyy)
+  const time = rowData[5];          // F -> E (format as HH:mm:ss)
+  const fileName = rowData[6];      // G -> F
+  const fileUrl = rowData[7];       // H -> G
+  const fileId = rowData[8];        // I -> H
+  const deleted = rowData[9];       // J -> I
+  const featuredStatus = rowData[10]; // K -> J
+  const featuredBy = rowData[11];   // L -> K
+  const photoType = rowData[12];    // M -> L
+
+  // Format date and time properly
+  let dateStr = date;
+  let timeStr = time;
+
+  if (date instanceof Date) {
+    dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+  }
+  if (time instanceof Date) {
+    timeStr = Utilities.formatDate(time, Session.getScriptTimeZone(), 'HH:mm:ss');
+  }
+
+  // Build corrected row (Format B - 12 columns)
+  const correctedRow = [
+    district,       // A
+    store,          // B
+    me,             // C
+    dateStr,        // D
+    timeStr,        // E
+    fileName,       // F
+    fileUrl,        // G
+    fileId,         // H
+    deleted,        // I
+    featuredStatus, // J
+    featuredBy,     // K
+    photoType       // L
+  ];
+
+  Logger.log('');
+  Logger.log('Corrected row (Format B, removing timestamp):');
+  for (let i = 0; i < correctedRow.length; i++) {
+    Logger.log('Col ' + String.fromCharCode(65 + i) + ': ' + JSON.stringify(correctedRow[i]));
+  }
+
+  // Clear the row first (to remove extra column M)
+  sheet.getRange(rowNumber, 1, 1, lastCol).clearContent();
+
+  // Write corrected data (12 columns)
+  sheet.getRange(rowNumber, 1, 1, 12).setValues([correctedRow]);
+
+  Logger.log('');
+  Logger.log('Row 13 fixed! Removed timestamp column, now matches Format B.');
+
+  return { success: true, message: 'Row 13 converted from Format A to Format B' };
+}
+
+/**
+ * View all Photo Log rows to check for inconsistencies
+ */
+function auditPhotoLogStructure() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+  const data = sheet.getDataRange().getValues();
+  const validDistricts = ['West', 'Central', 'East', 'North', 'South', 'District']; // District header
+
+  Logger.log('=== Photo Log Structure Audit ===');
+  Logger.log('Total rows: ' + data.length);
+  Logger.log('');
+
+  const issues = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const rowNum = i + 1;
+
+    // Skip header
+    if (i === 0) {
+      Logger.log('Row 1 (Header): ' + row.slice(0, 5).join(' | '));
+      continue;
+    }
+
+    // Check if first column is a valid district
+    if (!validDistricts.includes(row[0]) && row[0] !== '') {
+      issues.push({
+        row: rowNum,
+        issue: 'Column A is not a district: "' + row[0] + '"',
+        firstCols: row.slice(0, 4).join(' | ')
+      });
+    }
+  }
+
+  Logger.log('');
+  if (issues.length > 0) {
+    Logger.log('=== Rows with potential issues ===');
+    issues.forEach(item => {
+      Logger.log('Row ' + item.row + ': ' + item.issue);
+      Logger.log('  First columns: ' + item.firstCols);
+    });
+  } else {
+    Logger.log('All rows have valid District column');
+  }
+
+  return issues;
 }
 
 // ============================================

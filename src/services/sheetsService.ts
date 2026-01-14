@@ -1,5 +1,5 @@
-import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST, DEFAULT_STORE_PASSWORD, type District, getStoreList as getDistrictStores } from '../config';
-import type { StoreMetrics, StoreRoster, StoreAuth, Photo } from '../types';
+import { CSV_URL, ROSTER_CSV_URL, PASSWORDS_CSV_URL, APPS_SCRIPT_URL, STORE_LIST, DEFAULT_STORE_PASSWORD, DISTRICT_STORES, type District, getStoreList as getDistrictStores } from '../config';
+import type { StoreMetrics, StoreRoster, StoreAuth, Photo, StoreEntry } from '../types';
 
 // Header names to look for (case-insensitive matching)
 // Supports multiple naming conventions
@@ -11,6 +11,7 @@ const HEADER_TRAFFIC_VARIANTS = ['Traffic', 'traffic', 'exitTraffic', 'exittraff
 // Cache to prevent repeated fetches
 let metricsCache: { data: StoreMetrics[]; timestamp: number } | null = null;
 let passwordsCache: { data: StoreAuth[]; timestamp: number } | null = null;
+let storeCache: { data: StoreEntry[]; timestamp: number } | null = null;
 const CACHE_DURATION = 30000; // 30 second cache for fresher data
 
 /**
@@ -321,6 +322,141 @@ export function calculateMonthlyGoal(traffic: number, dataDate: string | null): 
   const goal = Math.round(trafficTrend * 0.03);
 
   return goal;
+}
+
+// ==================== STORE LIST FUNCTIONS ====================
+
+function buildFallbackStoreEntries(): StoreEntry[] {
+  return Object.entries(DISTRICT_STORES).flatMap(([district, stores]) =>
+    stores.map((storeName) => ({
+      district: district as District,
+      storeName,
+    }))
+  );
+}
+
+/**
+ * Fetches store list entries (district + store name) from Apps Script
+ */
+export async function fetchStoreEntries(): Promise<StoreEntry[]> {
+  if (storeCache && Date.now() - storeCache.timestamp < CACHE_DURATION) {
+    return storeCache.data;
+  }
+
+  if (!APPS_SCRIPT_URL) {
+    const fallback = buildFallbackStoreEntries();
+    storeCache = { data: fallback, timestamp: Date.now() };
+    return fallback;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'getStoreList' }),
+    });
+
+    const result = await response.json();
+    if (result.success && Array.isArray(result.stores)) {
+      const stores = result.stores
+        .map((store: any) => ({
+          district: (store.district || 'West') as District,
+          storeName: store.storeName || store.name || '',
+        }))
+        .filter((store: StoreEntry) => store.storeName);
+
+      storeCache = { data: stores, timestamp: Date.now() };
+      return stores;
+    }
+  } catch (error) {
+    console.error('Error fetching store list:', error);
+  }
+
+  const fallback = buildFallbackStoreEntries();
+  storeCache = { data: fallback, timestamp: Date.now() };
+  return fallback;
+}
+
+/**
+ * Fetches store names, optionally filtered by district
+ */
+export async function fetchStoreList(district?: District): Promise<string[]> {
+  const stores = await fetchStoreEntries();
+  const filtered = district ? stores.filter((store) => store.district === district) : stores;
+  const unique = new Set<string>();
+  filtered.forEach((store) => unique.add(store.storeName));
+  return Array.from(unique).sort();
+}
+
+/**
+ * Adds a store to a district via Apps Script
+ */
+export async function addStore(district: District, storeName: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    console.error('Apps Script URL not configured');
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'addStore',
+        district,
+        storeName,
+      }),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      storeCache = null;
+      passwordsCache = null;
+      return true;
+    }
+    console.error('Apps Script error:', result.error);
+    return false;
+  } catch (error) {
+    console.error('Error adding store:', error);
+    return false;
+  }
+}
+
+/**
+ * Removes a store from a district via Apps Script
+ */
+export async function removeStore(district: District, storeName: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    console.error('Apps Script URL not configured');
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'removeStore',
+        district,
+        storeName,
+      }),
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      storeCache = null;
+      passwordsCache = null;
+      return true;
+    }
+    console.error('Apps Script error:', result.error);
+    return false;
+  } catch (error) {
+    console.error('Error removing store:', error);
+    return false;
+  }
 }
 
 // ==================== ROSTER FUNCTIONS ====================
@@ -707,6 +843,7 @@ export async function setNotificationEmail(storeName: string, email: string): Pr
 export function clearCache() {
   metricsCache = null;
   passwordsCache = null;
+  storeCache = null;
 }
 
 /**
