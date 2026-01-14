@@ -3,15 +3,16 @@
 
 // Main metrics CSV (Traffic data tab)
 // Now includes District column: District, Store Name, Traffic, Submissions, ...
-export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=147391931&single=true&output=csv';
+// BACKUP SHEET: 1xuPzxV40q-i3CZbr6ghnVNJyjfYYHL1ZC4OzFVXHEdA
+export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1944745041&single=true&output=csv';
 
 // Roster CSV (Roster tab)
 // Format: District, Store Name, Mobile Expert Name (one row per mobile expert)
-export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=1331432233&single=true&output=csv';
+export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1331432233&single=true&output=csv';
 
 // Passwords CSV (Passwords tab)
 // Format: District, Store Name, Password
-export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_pY1v7j5gUo6f6zQIuX9ubJdeKuyRTxjrp1LvQGvb-WXtY_Ly9aEJsShO_Rhw6InCVRewWbwormjf/pub?gid=1351038140&single=true&output=csv';
+export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1351038140&single=true&output=csv';
 
 // Google Apps Script Web App URL for writing to sheets
 // Deploy the Apps Script and paste the URL here
