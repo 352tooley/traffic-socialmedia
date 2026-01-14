@@ -94,21 +94,22 @@ function uploadPhoto(data) {
     const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
     const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
 
-    // NEW STRUCTURE: District is FIRST column
+    // Photo Log structure (matches existing data after District column migration):
+    // A: District, B: Store Name, C: Mobile Expert, D: Date, E: Time, 
+    // F: File Name, G: File URL, H: File ID, I: deleted, J: featuredStatus, K: featuredBy, L: photoType
     sheet.appendRow([
-      district,           // Column A - NEW!
-      timestamp,          // Column B
-      storeName,          // Column C
-      mobileExpertName,   // Column D
-      dateStr,            // Column E
-      timeStr,            // Column F
-      fileName,           // Column G
-      fileUrl,            // Column H
-      fileId,             // Column I
-      'FALSE',            // Column J - deleted (boolean as string)
-      '',                 // Column K - featuredStatus
-      '',                 // Column L - featuredBy
-      'mobile_expert'     // Column M - photoType
+      district,           // Column A - District
+      storeName,          // Column B - Store Name
+      mobileExpertName,   // Column C - Mobile Expert
+      dateStr,            // Column D - Date
+      timeStr,            // Column E - Time
+      fileName,           // Column F - File Name
+      fileUrl,            // Column G - File URL
+      fileId,             // Column H - File ID
+      'FALSE',            // Column I - deleted (boolean as string)
+      '',                 // Column J - featuredStatus
+      '',                 // Column K - featuredBy
+      'mobile_expert'     // Column L - photoType
     ]);
 
     return respond(true, 'Photo uploaded successfully', { fileUrl, fileId });
@@ -146,17 +147,18 @@ function uploadTeamPhoto(data) {
     const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
     const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
 
-    // NEW STRUCTURE: District is FIRST column
+    // Photo Log structure (matches existing data):
+    // A: District, B: Store Name, C: Mobile Expert, D: Date, E: Time, 
+    // F: File Name, G: File URL, H: File ID, I: deleted, J: featuredStatus, K: featuredBy, L: photoType
     sheet.appendRow([
-      district,           // Column A - NEW!
-      timestamp,          // Column B
-      storeName,          // Column C
-      uploadedBy,         // Column D (RSM name)
-      dateStr,            // Column E
-      timeStr,            // Column F
-      fileName,           // Column G
-      fileUrl,            // Column H
-      fileId,             // Column I
+      district,           // Column A - District
+      storeName,          // Column B - Store Name
+      uploadedBy,         // Column C - Uploaded By (RSM name)
+      dateStr,            // Column D - Date
+      timeStr,            // Column E - Time
+      fileName,           // Column F - File Name
+      fileUrl,            // Column G - File URL
+      fileId,             // Column H - File ID
       'FALSE',            // Column J - deleted
       'pending',          // Column K - featuredStatus (pending DM approval)
       uploadedBy,         // Column L - featuredBy (RSM who uploaded)
@@ -197,18 +199,19 @@ function uploadDMPhoto(data) {
     const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
     const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
 
-    // NEW STRUCTURE: District is FIRST column
+    // Photo Log structure (matches existing data):
+    // A: District, B: Store Name, C: Mobile Expert, D: Date, E: Time, 
+    // F: File Name, G: File URL, H: File ID, I: deleted, J: featuredStatus, K: featuredBy, L: photoType
     sheet.appendRow([
-      district,           // Column A - NEW!
-      timestamp,          // Column B
-      'District',         // Column C - storeName (DM photos are district-wide)
-      uploadedBy,         // Column D
-      dateStr,            // Column E
-      timeStr,            // Column F
-      fileName,           // Column G
-      fileUrl,            // Column H
-      fileId,             // Column I
-      'FALSE',            // Column J - deleted
+      district,           // Column A - District
+      'District',         // Column B - storeName (DM photos are district-wide)
+      uploadedBy,         // Column C - Uploaded By (DM)
+      dateStr,            // Column D - Date
+      timeStr,            // Column E - Time
+      fileName,           // Column F - File Name
+      fileUrl,            // Column G - File URL
+      fileId,             // Column H - File ID
+      'FALSE',            // Column I - deleted
       'approved',         // Column K - featuredStatus (auto-approved)
       uploadedBy,         // Column L - featuredBy
       'dm'                // Column M - photoType
@@ -237,22 +240,22 @@ function getPhotos(data) {
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       
-      // NEW: Check if we have district column (13+ columns) or old format (12 columns)
-      const hasDistrict = row.length >= 13;
+      // Check if we have district column (12 columns) or old format (11 columns)
+      // Structure: District, Store, ME, Date, Time, FileName, FileURL, FileID, deleted, featuredStatus, featuredBy, photoType
+      const hasDistrict = row.length >= 12;
       
       const district = hasDistrict ? row[0] : 'West';
-      const timestamp = hasDistrict ? row[1] : row[0];
-      const store = hasDistrict ? row[2] : row[1];
-      const mobileExpert = hasDistrict ? row[3] : row[2];
-      const date = hasDistrict ? row[4] : row[3];
-      const time = hasDistrict ? row[5] : row[4];
-      const fileName = hasDistrict ? row[6] : row[5];
-      const fileUrl = hasDistrict ? row[7] : row[6];
-      const fileId = hasDistrict ? row[8] : row[7];
-      const deleted = hasDistrict ? row[9] : row[8];
-      const featuredStatus = hasDistrict ? row[10] : row[9];
-      const featuredBy = hasDistrict ? row[11] : row[10];
-      const photoType = hasDistrict ? row[12] : row[11];
+      const store = hasDistrict ? row[1] : row[0];
+      const mobileExpert = hasDistrict ? row[2] : row[1];
+      const date = hasDistrict ? row[3] : row[2];
+      const time = hasDistrict ? row[4] : row[3];
+      const fileName = hasDistrict ? row[5] : row[4];
+      const fileUrl = hasDistrict ? row[6] : row[5];
+      const fileId = hasDistrict ? row[7] : row[6];
+      const deleted = hasDistrict ? row[8] : row[7];
+      const featuredStatus = hasDistrict ? row[9] : row[8];
+      const featuredBy = hasDistrict ? row[10] : row[9];
+      const photoType = hasDistrict ? row[11] : row[10];
 
       // Filter by store if requested
       if (storeName && store !== storeName) continue;
@@ -459,11 +462,12 @@ function deletePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
-      const rowFileId = hasDistrict ? row[8] : row[7];
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I)
+      const hasDistrict = row.length >= 12;
+      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District, Column G (index 6) without
 
       if (rowFileId === fileId) {
-        const deletedCol = hasDistrict ? 10 : 9; // Column J or I
+        const deletedCol = hasDistrict ? 9 : 8; // Column I (1-indexed: 9) with District, Column H (8) without
         sheet.getRange(i + 1, deletedCol).setValue(true);
         return respond(true, 'Photo deleted');
       }
@@ -488,12 +492,13 @@ function featurePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
-      const rowFileId = hasDistrict ? row[8] : row[7];
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K)
+      const hasDistrict = row.length >= 12;
+      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 11 : 10; // Column K or J
-        const byCol = hasDistrict ? 12 : 11; // Column L or K
+        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
+        const byCol = hasDistrict ? 11 : 10; // Column K (1-indexed: 11) with District
         
         sheet.getRange(i + 1, statusCol).setValue('pending');
         sheet.getRange(i + 1, byCol).setValue(featuredBy);
@@ -519,11 +524,12 @@ function approvePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
-      const rowFileId = hasDistrict ? row[8] : row[7];
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
+      const hasDistrict = row.length >= 12;
+      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 11 : 10;
+        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
         sheet.getRange(i + 1, statusCol).setValue('approved');
         return respond(true, 'Photo approved');
       }
@@ -547,11 +553,12 @@ function rejectPhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
-      const rowFileId = hasDistrict ? row[8] : row[7];
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
+      const hasDistrict = row.length >= 12;
+      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 11 : 10;
+        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
         sheet.getRange(i + 1, statusCol).setValue('rejected');
         return respond(true, 'Photo rejected');
       }
@@ -575,11 +582,12 @@ function unapprovePhoto(data) {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
-      const rowFileId = hasDistrict ? row[8] : row[7];
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J)
+      const hasDistrict = row.length >= 12;
+      const rowFileId = hasDistrict ? row[7] : row[6]; // Column H (index 7) with District
 
       if (rowFileId === fileId) {
-        const statusCol = hasDistrict ? 11 : 10;
+        const statusCol = hasDistrict ? 10 : 9; // Column J (1-indexed: 10) with District
         sheet.getRange(i + 1, statusCol).setValue('');
         return respond(true, 'Photo unapproved');
       }
@@ -602,20 +610,21 @@ function getPendingPhotos() {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K), photoType(L)
+      const hasDistrict = row.length >= 12;
       
       const district = hasDistrict ? row[0] : 'West';
-      const store = hasDistrict ? row[2] : row[1];
-      const mobileExpert = hasDistrict ? row[3] : row[2];
-      const date = hasDistrict ? row[4] : row[3];
-      const time = hasDistrict ? row[5] : row[4];
-      const fileName = hasDistrict ? row[6] : row[5];
-      const fileUrl = hasDistrict ? row[7] : row[6];
-      const fileId = hasDistrict ? row[8] : row[7];
-      const deleted = hasDistrict ? row[9] : row[8];
-      const featuredStatus = hasDistrict ? row[10] : row[9];
-      const featuredBy = hasDistrict ? row[11] : row[10];
-      const photoType = hasDistrict ? row[12] : row[11];
+      const store = hasDistrict ? row[1] : row[0];
+      const mobileExpert = hasDistrict ? row[2] : row[1];
+      const date = hasDistrict ? row[3] : row[2];
+      const time = hasDistrict ? row[4] : row[3];
+      const fileName = hasDistrict ? row[5] : row[4];
+      const fileUrl = hasDistrict ? row[6] : row[5];
+      const fileId = hasDistrict ? row[7] : row[6];
+      const deleted = hasDistrict ? row[8] : row[7];
+      const featuredStatus = hasDistrict ? row[9] : row[8];
+      const featuredBy = hasDistrict ? row[10] : row[9];
+      const photoType = hasDistrict ? row[11] : row[10];
 
       if (featuredStatus === 'pending' && deleted !== true) {
         photos.push({
@@ -652,20 +661,21 @@ function getApprovedPhotos() {
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      const hasDistrict = row.length >= 13;
+      // Structure: District(A), Store(B), ME(C), Date(D), Time(E), FileName(F), FileURL(G), FileID(H), deleted(I), featuredStatus(J), featuredBy(K), photoType(L)
+      const hasDistrict = row.length >= 12;
       
       const district = hasDistrict ? row[0] : 'West';
-      const store = hasDistrict ? row[2] : row[1];
-      const mobileExpert = hasDistrict ? row[3] : row[2];
-      const date = hasDistrict ? row[4] : row[3];
-      const time = hasDistrict ? row[5] : row[4];
-      const fileName = hasDistrict ? row[6] : row[5];
-      const fileUrl = hasDistrict ? row[7] : row[6];
-      const fileId = hasDistrict ? row[8] : row[7];
-      const deleted = hasDistrict ? row[9] : row[8];
-      const featuredStatus = hasDistrict ? row[10] : row[9];
-      const featuredBy = hasDistrict ? row[11] : row[10];
-      const photoType = hasDistrict ? row[12] : row[11];
+      const store = hasDistrict ? row[1] : row[0];
+      const mobileExpert = hasDistrict ? row[2] : row[1];
+      const date = hasDistrict ? row[3] : row[2];
+      const time = hasDistrict ? row[4] : row[3];
+      const fileName = hasDistrict ? row[5] : row[4];
+      const fileUrl = hasDistrict ? row[6] : row[5];
+      const fileId = hasDistrict ? row[7] : row[6];
+      const deleted = hasDistrict ? row[8] : row[7];
+      const featuredStatus = hasDistrict ? row[9] : row[8];
+      const featuredBy = hasDistrict ? row[10] : row[9];
+      const photoType = hasDistrict ? row[11] : row[10];
 
       if (featuredStatus === 'approved' && deleted !== true) {
         photos.push({
