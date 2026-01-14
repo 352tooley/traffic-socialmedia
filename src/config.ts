@@ -1,9 +1,10 @@
 // Configuration file for Traffic Social Media App
 // All data is stored in Google Sheets
 
-// Main metrics CSV (Traffic data tab)
+// Main metrics CSV (January Total tab - has Store Name, Count, Traffic, Per 100)
 // BACKUP SHEET: 1xuPzxV40q-i3CZbr6ghnVNJyjfYYHL1ZC4OzFVXHEdA
-export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9pG5C2v4XhDWhXkvGqlWjHeyzOKcFzc5tQbp2GuwfiOLGOegdDIYVfE7g8UVNLCu6-tgKc5vVO5uI/pub?output=csv';
+// gid=147391931 is the January Total tab
+export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9pG5C2v4XhDWhXkvGqlWjHeyzOKcFzc5tQbp2GuwfiOLGOegdDIYVfE7g8UVNLCu6-tgKc5vVO5uI/pub?gid=147391931&single=true&output=csv';
 
 // Roster CSV (Roster tab)
 // Format: Store Name, Mobile Expert Name (one row per mobile expert)
