@@ -190,8 +190,8 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
     const file = folder.createFile(blob);
     file.setDescription(`Store: ${storeName}, Mobile Expert: ${mobileExpertName}`);
 
-    // Make file viewable by anyone with link
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // Make file publicly viewable (required for direct image URLs)
+    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
 
     // Get current date/time in Central Time
     const now = new Date();
@@ -631,7 +631,7 @@ function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
     // Create file in Drive
     const file = folder.createFile(blob);
     file.setDescription(`Store: ${storeName}, Team Photo by: ${uploadedBy}`);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
 
     // Get current date/time
     const now = new Date();
@@ -681,7 +681,7 @@ function uploadDMPhoto(photoData, fileName, uploadedBy) {
     // Create file in Drive
     const file = folder.createFile(blob);
     file.setDescription('DM Photo by: ' + uploadedBy);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
 
     // Get current date/time
     const now = new Date();
