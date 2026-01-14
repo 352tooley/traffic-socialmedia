@@ -323,7 +323,8 @@ export async function addToRoster(storeName: string, mobileExpertName: string): 
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'addRoster',
         storeName,
@@ -331,11 +332,12 @@ export async function addToRoster(storeName: string, mobileExpertName: string): 
       }),
     });
 
-    if (response.ok) {
-      // Clear cache to refresh data
+    const result = await response.json();
+    if (result.success) {
       rosterCache = null;
       return true;
     }
+    console.error('Apps Script error:', result.error);
     return false;
   } catch (error) {
     console.error('Error adding to roster:', error);
@@ -355,7 +357,8 @@ export async function removeFromRoster(storeName: string, mobileExpertName: stri
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'removeRoster',
         storeName,
@@ -363,11 +366,12 @@ export async function removeFromRoster(storeName: string, mobileExpertName: stri
       }),
     });
 
-    if (response.ok) {
-      // Clear cache to refresh data
+    const result = await response.json();
+    if (result.success) {
       rosterCache = null;
       return true;
     }
+    console.error('Apps Script error:', result.error);
     return false;
   } catch (error) {
     console.error('Error removing from roster:', error);
@@ -468,7 +472,8 @@ export async function updateStorePassword(storeName: string, newPassword: string
   try {
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'updatePassword',
         storeName,
@@ -476,11 +481,12 @@ export async function updateStorePassword(storeName: string, newPassword: string
       }),
     });
 
-    if (response.ok) {
-      // Clear cache to refresh data
+    const result = await response.json();
+    if (result.success) {
       passwordsCache = null;
       return true;
     }
+    console.error('Apps Script error:', result.error);
     return false;
   } catch (error) {
     console.error('Error updating password:', error);
