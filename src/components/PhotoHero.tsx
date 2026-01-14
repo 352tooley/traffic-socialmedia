@@ -53,10 +53,7 @@ export function PhotoHero() {
       </div>
       
       <div className="photo-hero__content">
-        <h1 className="photo-hero__title">Show Your Wins</h1>
-        <p className="photo-hero__subtitle">
-          Upload your photos. See your team. Get recognized.
-        </p>
+        <h1 className="photo-hero__title">Social Media Manager</h1>
       </div>
     </div>
   );

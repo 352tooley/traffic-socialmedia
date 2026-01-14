@@ -213,6 +213,97 @@
   margin: 0 0 1.5rem 0;
 }
 
+/* Team Photo Upload Section */
+.team-upload-section {
+  margin-bottom: 1.5rem;
+}
+
+.team-upload {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--magenta-primary);
+}
+
+.team-upload h3 {
+  font-size: 1.1rem;
+  color: var(--dark);
+  margin: 0 0 0.5rem 0;
+}
+
+.team-upload__hint {
+  color: var(--medium-gray);
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem 0;
+}
+
+.team-upload__select {
+  width: 100%;
+  padding: 1.25rem;
+  border: 2px dashed var(--lighter-gray);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--dark);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.team-upload__select:hover {
+  border-color: var(--magenta-primary);
+  background: #FFF4F7;
+  color: var(--magenta-primary);
+}
+
+.team-upload__preview {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  max-height: 300px;
+}
+
+.team-upload__preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.team-upload__clear {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-upload__clear:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.team-upload__success {
+  background: #D4EDDA;
+  color: #155724;
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
 @media (max-width: 480px) {
   .upload-form {
     padding: 1rem;

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { uploadPhoto } from '../services/sheetsService';
+import { uploadPhoto, uploadTeamPhoto } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './UploadPhoto.css';
 
@@ -11,9 +11,17 @@ export function UploadPhoto() {
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  
+  // Team photo upload state
+  const [showTeamUpload, setShowTeamUpload] = useState(false);
+  const [selectedTeamPhoto, setSelectedTeamPhoto] = useState<File | null>(null);
+  const [teamPhotoPreview, setTeamPhotoPreview] = useState<string | null>(null);
+  const [uploadingTeam, setUploadingTeam] = useState(false);
+  const [teamUploadSuccess, setTeamUploadSuccess] = useState(false);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const teamPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const storeName = session?.storeName || '';
   const mobileExpertName = session?.mobileExpertName || '';
@@ -101,6 +109,47 @@ export function UploadPhoto() {
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
+  const handleTeamPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedTeamPhoto(file);
+      setTeamPhotoPreview(URL.createObjectURL(file));
+      setError('');
+    }
+  };
+
+  const handleTeamPhotoUpload = async () => {
+    if (!selectedTeamPhoto || !storeName) return;
+
+    setUploadingTeam(true);
+    setError('');
+
+    try {
+      const photoData = await fileToBase64(selectedTeamPhoto);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `${storeName}_team_${timestamp}.jpg`;
+
+      const result = await uploadTeamPhoto(storeName, mobileExpertName, photoData, fileName);
+
+      if (result.success) {
+        setTeamUploadSuccess(true);
+        setSelectedTeamPhoto(null);
+        setTeamPhotoPreview(null);
+        setTimeout(() => {
+          setTeamUploadSuccess(false);
+          setShowTeamUpload(false);
+        }, 3000);
+      } else {
+        setError(result.error || 'Upload failed');
+      }
+      setUploadingTeam(false);
+    } catch (err) {
+      console.error('Team upload error:', err);
+      setError('Upload failed. Please try again.');
+      setUploadingTeam(false);
+    }
+  };
+
   if (success) {
     return (
       <Layout title="Upload Photo" showBack>
@@ -124,6 +173,74 @@ export function UploadPhoto() {
   return (
     <Layout title="Upload Photo" showBack>
       <div className="upload-page">
+        {/* Team Photo Upload Section */}
+        <div className="team-upload-section">
+          <Button 
+            variant="secondary" 
+            fullWidth
+            onClick={() => setShowTeamUpload(!showTeamUpload)}
+          >
+            {showTeamUpload ? 'Cancel' : '📸 Upload Team Photo for Homepage'}
+          </Button>
+        </div>
+
+        {showTeamUpload && (
+          <div className="team-upload">
+            <h3>Upload Team Photo</h3>
+            <p className="team-upload__hint">
+              Upload a fun photo of your team. It will be sent to DM for approval before appearing on the homepage.
+            </p>
+            
+            <input
+              ref={teamPhotoInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTeamPhotoSelect}
+              style={{ display: 'none' }}
+            />
+
+            {teamPhotoPreview ? (
+              <div className="team-upload__preview">
+                <img src={teamPhotoPreview} alt="Preview" />
+                <button
+                  className="team-upload__clear"
+                  onClick={() => {
+                    setSelectedTeamPhoto(null);
+                    setTeamPhotoPreview(null);
+                    if (teamPhotoInputRef.current) teamPhotoInputRef.current.value = '';
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                className="team-upload__select"
+                onClick={() => teamPhotoInputRef.current?.click()}
+              >
+                📷 Select Photo
+              </button>
+            )}
+
+            {selectedTeamPhoto && (
+              <Button
+                variant="large"
+                fullWidth
+                onClick={handleTeamPhotoUpload}
+                disabled={uploadingTeam}
+              >
+                {uploadingTeam ? 'Uploading...' : 'Submit for Approval'}
+              </Button>
+            )}
+
+            {teamUploadSuccess && (
+              <div className="team-upload__success">
+                ✅ Photo submitted! DM will review it.
+              </div>
+            )}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="upload-form">
           <div className="upload-form__info">
             <div className="upload-form__store">
