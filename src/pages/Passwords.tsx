@@ -20,6 +20,7 @@ export function Passwords() {
   const [passwords, setPasswords] = useState<StoreAuth[]>([]);
   const [stores, setStores] = useState<string[]>([]);
 
+  const district = session?.district || 'West';
   const isAppsScriptConfigured = Boolean(APPS_SCRIPT_URL);
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function Passwords() {
     }
     loadStores();
     loadPasswords();
-  }, [session, navigate]);
+  }, [session, navigate, district]);
 
   const loadPasswords = async () => {
     setLoading(true);
@@ -49,7 +50,7 @@ export function Passwords() {
   const loadStores = async () => {
     setLoadingStores(true);
     try {
-      const storeList = await fetchStoreList();
+      const storeList = await fetchStoreList(district);
       setStores(storeList);
     } catch (err) {
       console.error('Error loading stores:', err);
@@ -60,7 +61,7 @@ export function Passwords() {
   };
 
   const getCurrentPassword = (storeName: string) => {
-    const storeAuth = passwords.find(p => p.storeName === storeName);
+    const storeAuth = passwords.find(p => p.storeName === storeName && p.district === district);
     return storeAuth?.password || 'password';
   };
 

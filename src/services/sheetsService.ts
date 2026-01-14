@@ -898,7 +898,7 @@ export async function uploadPhoto(
  * @param storeName - Filter by store name (empty for all)
  * @param includeDeleted - If true, includes soft-deleted photos (for counting uploads)
  */
-export async function getPhotos(storeName?: string, includeDeleted: boolean = false): Promise<Photo[]> {
+export async function getPhotos(storeName?: string, includeDeleted: boolean = false, district?: District): Promise<Photo[]> {
   if (!APPS_SCRIPT_URL) {
     return [];
   }
@@ -912,6 +912,7 @@ export async function getPhotos(storeName?: string, includeDeleted: boolean = fa
         action: 'getPhotos',
         storeName: storeName || '',
         includeDeleted,
+        district: district || '',
       }),
     });
 
@@ -974,9 +975,9 @@ function parseDateForFiltering(dateStr: string): { month: number; year: number }
  * Gets upload stats for mobile experts, optionally filtered by store and current month
  * Always includes deleted photos to maintain accurate upload counts
  */
-export async function getMobileExpertStats(storeName?: string, currentMonthOnly: boolean = true): Promise<MobileExpertStats[]> {
+export async function getMobileExpertStats(storeName?: string, currentMonthOnly: boolean = true, district?: District): Promise<MobileExpertStats[]> {
   // Include deleted photos so counts persist after deletion
-  const photos = await getPhotos(storeName, true);
+  const photos = await getPhotos(storeName, true, district);
 
   // Filter to ONLY mobile_expert photos (exclude team and DM photos for homepage)
   // Only count actual social media ticket uploads in reporting
@@ -1133,7 +1134,7 @@ export async function rejectPhoto(fileId: string): Promise<boolean> {
 /**
  * Gets all pending photos for DM approval
  */
-export async function getPendingPhotos(): Promise<Photo[]> {
+export async function getPendingPhotos(district?: District): Promise<Photo[]> {
   if (!APPS_SCRIPT_URL) {
     return [];
   }
@@ -1145,6 +1146,7 @@ export async function getPendingPhotos(): Promise<Photo[]> {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'getPendingPhotos',
+        district: district || '',
       }),
     });
 
@@ -1159,7 +1161,7 @@ export async function getPendingPhotos(): Promise<Photo[]> {
 /**
  * Gets all approved photos (currently on homepage)
  */
-export async function getApprovedPhotos(): Promise<Photo[]> {
+export async function getApprovedPhotos(district?: District): Promise<Photo[]> {
   if (!APPS_SCRIPT_URL) {
     return [];
   }
@@ -1171,6 +1173,7 @@ export async function getApprovedPhotos(): Promise<Photo[]> {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'getApprovedPhotos',
+        district: district || '',
       }),
     });
 

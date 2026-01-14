@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loginAsMobileExpert: (district: District, storeName: string, mobileExpertName: string) => void;
   loginAsStore: (district: District, storeName: string, password: string) => Promise<boolean>;
-  loginAsDM: (password: string) => boolean;
+  loginAsDM: (password: string, district: District) => boolean;
   logout: () => void;
 }
 
@@ -39,11 +39,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
-  const loginAsDM = (password: string): boolean => {
+  const loginAsDM = (password: string, district: District): boolean => {
     if (password === DM_PASSWORD) {
       setSession({
         role: 'dm',
-        district: 'West', // DM can see all districts, default to West
+        district,
         storeName: '',
       });
       return true;

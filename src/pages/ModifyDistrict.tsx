@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { addStore, removeStore, fetchStoreList, clearCache } from '../services/sheetsService';
-import { APPS_SCRIPT_URL, DISTRICTS, type District } from '../config';
+import { APPS_SCRIPT_URL, type District } from '../config';
 import { Layout, Button } from '../components';
 import './ModifyDistrict.css';
 
@@ -10,7 +10,6 @@ export function ModifyDistrict() {
   const { session } = useAuth();
   const navigate = useNavigate();
 
-  const [selectedDistrict, setSelectedDistrict] = useState<District>('West');
   const [stores, setStores] = useState<string[]>([]);
   const [newStoreName, setNewStoreName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -20,13 +19,15 @@ export function ModifyDistrict() {
 
   const isAppsScriptConfigured = Boolean(APPS_SCRIPT_URL);
 
+  const district = session?.district || 'West';
+
   useEffect(() => {
     if (session?.role !== 'dm') {
       navigate('/');
       return;
     }
-    loadStores(selectedDistrict);
-  }, [session, navigate, selectedDistrict]);
+    loadStores(district);
+  }, [session, navigate, district]);
 
   const loadStores = async (district: District) => {
     setLoading(true);
@@ -60,11 +61,11 @@ export function ModifyDistrict() {
     setError('');
 
     try {
-      const success = await addStore(selectedDistrict, trimmed);
+      const success = await addStore(district, trimmed);
       if (success) {
-        setMessage(`Added ${trimmed} to ${selectedDistrict}`);
+        setMessage(`Added ${trimmed} to ${district}`);
         setNewStoreName('');
-        await loadStores(selectedDistrict);
+        await loadStores(district);
         setTimeout(() => setMessage(''), 3000);
       } else {
         setError('Failed to add store. It may already exist.');
@@ -87,7 +88,7 @@ export function ModifyDistrict() {
     }
 
     const confirmed = window.confirm(
-      `Remove ${storeName} from ${selectedDistrict}? This also removes its roster and password rows.`
+      `Remove ${storeName} from ${district}? This also removes its roster and password rows.`
     );
     if (!confirmed) return;
 
@@ -95,10 +96,10 @@ export function ModifyDistrict() {
     setError('');
 
     try {
-      const success = await removeStore(selectedDistrict, storeName);
+      const success = await removeStore(district, storeName);
       if (success) {
-        setMessage(`Removed ${storeName} from ${selectedDistrict}`);
-        await loadStores(selectedDistrict);
+        setMessage(`Removed ${storeName} from ${district}`);
+        await loadStores(district);
         setTimeout(() => setMessage(''), 3000);
       } else {
         setError('Failed to remove store');
@@ -138,17 +139,7 @@ export function ModifyDistrict() {
         <div className="modify-district-controls">
           <div className="modify-district-field">
             <label>District</label>
-            <select
-              value={selectedDistrict}
-              onChange={(e) => setSelectedDistrict(e.target.value as District)}
-              disabled={submitting}
-            >
-              {DISTRICTS.map((district) => (
-                <option key={district} value={district}>
-                  {district}
-                </option>
-              ))}
-            </select>
+            <div className="modify-district-value">{district}</div>
           </div>
 
           <div className="modify-district-field">
@@ -169,7 +160,7 @@ export function ModifyDistrict() {
         </div>
 
         <div className="modify-district-list">
-          <h3>{selectedDistrict} Stores ({stores.length})</h3>
+          <h3>{district} Stores ({stores.length})</h3>
           {stores.length === 0 ? (
             <p className="modify-district-empty">No stores in this district yet.</p>
           ) : (

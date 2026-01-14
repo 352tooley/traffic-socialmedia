@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreMetricsByName, getStoreRoster } from '../services/sheetsService';
+import { getStoreMetricsByName, getStoreRoster, fetchStoreList } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import { Layout, KpiCard, Loading } from '../components';
 import './StoreDetail.css';
@@ -14,6 +14,7 @@ export function StoreDetail() {
   const [roster, setRoster] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const district = session?.district || 'West';
 
   const decodedStoreName = storeName ? decodeURIComponent(storeName) : '';
 
@@ -27,13 +28,19 @@ export function StoreDetail() {
     if (decodedStoreName) {
       loadData();
     }
-  }, [session, decodedStoreName, navigate]);
+  }, [session, decodedStoreName, navigate, district]);
 
   const loadData = async () => {
     setLoading(true);
     setError('');
 
     try {
+      const districtStores = await fetchStoreList(district);
+      if (!districtStores.includes(decodedStoreName)) {
+        navigate('/');
+        return;
+      }
+
       // Load metrics from CSV
       const storeMetrics = await getStoreMetricsByName(decodedStoreName);
       setMetrics(storeMetrics);

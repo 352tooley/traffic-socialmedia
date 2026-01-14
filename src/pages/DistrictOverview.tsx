@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMetricsSortedByPerformance, getDistrictTotals, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
+import { getMetricsSortedByPerformance, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import { Layout, KpiCard, DataTable, Loading } from '../components';
 import type { Column } from '../components';
@@ -15,6 +15,7 @@ export function DistrictOverview() {
   const [trafficDataDate, setTrafficDataDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const district = session?.district || 'West';
 
   useEffect(() => {
     // Redirect if not DM
@@ -24,7 +25,7 @@ export function DistrictOverview() {
     }
 
     loadData();
-  }, [session, navigate]);
+  }, [session, navigate, district]);
 
   const loadData = async () => {
     setLoading(true);
@@ -33,11 +34,26 @@ export function DistrictOverview() {
     try {
       // Load all store metrics sorted by performance
       const storeMetrics = await getMetricsSortedByPerformance();
-      setStores(storeMetrics);
+      const filteredStores = storeMetrics.filter((store) => store.district === district);
+      setStores(filteredStores);
 
-      // Load district totals
-      const totals = await getDistrictTotals();
-      setDistrictTotals(totals);
+      if (filteredStores.length > 0) {
+        const submissions = filteredStores.reduce((sum, store) => sum + store.submissions, 0);
+        const traffic = filteredStores.reduce((sum, store) => sum + store.traffic, 0);
+        const submissionsPer100 = traffic > 0
+          ? Math.round((submissions / traffic) * 100 * 100) / 100
+          : 0;
+
+        setDistrictTotals({
+          storeName: 'District Total',
+          district,
+          submissions,
+          traffic,
+          submissionsPer100,
+        });
+      } else {
+        setDistrictTotals(null);
+      }
 
       // Load traffic data date
       const dataDate = await getTrafficDataDate();

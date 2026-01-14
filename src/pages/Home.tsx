@@ -12,6 +12,7 @@ export function Home() {
   const isDM = session?.role === 'dm';
   const isStore = session?.role === 'store';
   const isMobileExpert = session?.role === 'mobile_expert';
+  const district = session?.district || 'West';
 
   // Goal tracking state for Mobile Experts
   const [individualGoal, setIndividualGoal] = useState<number>(0);
@@ -35,7 +36,7 @@ export function Home() {
       const [metrics, roster, expertStats, trafficDataDate] = await Promise.all([
         getStoreMetricsByName(storeName),
         getStoreRoster(storeName),
-        getMobileExpertStats(storeName, true), // current month only
+        getMobileExpertStats(storeName, true, district), // current month only
         getTrafficDataDate()
       ]);
 
@@ -65,7 +66,7 @@ export function Home() {
       <div className="home">
         <div className="home__welcome">
           <h2>
-            {isDM && 'District Manager'}
+            {isDM && `District Manager - ${district}`}
             {isStore && `${session?.storeName}`}
             {isMobileExpert && `${session?.storeName} - ${session?.mobileExpertName}`}
           </h2>

@@ -20,6 +20,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState<string[]>([]);
   const [storesLoading, setStoresLoading] = useState(false);
+  const [selectedDMDistrict, setSelectedDMDistrict] = useState<District>('West');
 
   const navigate = useNavigate();
   const { loginAsMobileExpert, loginAsStore, loginAsDM, session } = useAuth();
@@ -123,7 +124,7 @@ export function Login() {
       return;
     }
 
-    if (loginAsDM(password)) {
+    if (loginAsDM(password, selectedDMDistrict)) {
       navigate('/');
     } else {
       setError('Incorrect password');
@@ -289,6 +290,23 @@ export function Login() {
           {stores.map((store) => (
             <option key={store} value={store}>
               {store}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="login-field">
+        <label>District</label>
+        <select
+          value={selectedDMDistrict}
+          onChange={(e) => {
+            setSelectedDMDistrict(e.target.value as District);
+            setError('');
+          }}
+        >
+          {DISTRICTS.map((district) => (
+            <option key={district} value={district}>
+              {district}
             </option>
           ))}
         </select>

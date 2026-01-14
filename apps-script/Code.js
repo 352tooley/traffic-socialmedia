@@ -46,9 +46,9 @@ function doPost(e) {
       case 'unapprovePhoto':
         return unapprovePhoto(data);
       case 'getPendingPhotos':
-        return getPendingPhotos();
+        return getPendingPhotos(data);
       case 'getApprovedPhotos':
-        return getApprovedPhotos();
+        return getApprovedPhotos(data);
       case 'getStoreList':
         return getStoreList(data);
       case 'addStore':
@@ -239,6 +239,7 @@ function getPhotos(data) {
   try {
     const storeName = data.storeName || '';
     const includeDeleted = data.includeDeleted || false;
+    const districtFilter = data.district || '';
 
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
     const rows = sheet.getDataRange().getValues();
@@ -287,6 +288,9 @@ function getPhotos(data) {
         featuredBy = row[10];
         photoType = row[11];
       }
+
+      // Filter by district if requested
+      if (districtFilter && district !== districtFilter) continue;
 
       // Filter by store if requested
       if (storeName && store !== storeName) continue;
@@ -888,8 +892,9 @@ function unapprovePhoto(data) {
 /**
  * Gets pending photos for DM approval
  */
-function getPendingPhotos() {
+function getPendingPhotos(data) {
   try {
+    const districtFilter = data && data.district ? data.district : '';
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
     const rows = sheet.getDataRange().getValues();
     const photos = [];
@@ -933,6 +938,8 @@ function getPendingPhotos() {
         featuredBy = row[10];
         photoType = row[11];
       }
+
+      if (districtFilter && district !== districtFilter) continue;
 
       if (featuredStatus === 'pending' && deleted !== true) {
         photos.push({
@@ -961,8 +968,9 @@ function getPendingPhotos() {
 /**
  * Gets approved photos (on homepage)
  */
-function getApprovedPhotos() {
+function getApprovedPhotos(data) {
   try {
+    const districtFilter = data && data.district ? data.district : '';
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
     const rows = sheet.getDataRange().getValues();
     const photos = [];
@@ -1006,6 +1014,8 @@ function getApprovedPhotos() {
         featuredBy = row[10];
         photoType = row[11];
       }
+
+      if (districtFilter && district !== districtFilter) continue;
 
       if (featuredStatus === 'approved' && deleted !== true) {
         photos.push({

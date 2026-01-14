@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreRoster, addToRoster, removeFromRoster, clearCache, getNotificationEmail, setNotificationEmail } from '../services/sheetsService';
+import { getStoreRoster, addToRoster, removeFromRoster, clearCache, getNotificationEmail, setNotificationEmail, fetchStoreList } from '../services/sheetsService';
 import { APPS_SCRIPT_URL } from '../config';
 import { Layout, Button } from '../components';
 import './Roster.css';
@@ -19,6 +19,7 @@ export function Roster() {
   const [notifyEmail, setNotifyEmail] = useState('');
   const [savedEmail, setSavedEmail] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
+  const district = session?.district || 'West';
 
   // Get store name from URL params (for DM viewing specific store) or session
   const urlStoreName = searchParams.get('store');
@@ -34,11 +35,18 @@ export function Roster() {
     }
     loadRoster();
     loadNotificationEmail();
-  }, [session, navigate, storeName]);
+  }, [session, navigate, storeName, district]);
 
   const loadRoster = async () => {
     setLoading(true);
     try {
+      if (session?.role === 'dm') {
+        const districtStores = await fetchStoreList(district);
+        if (!districtStores.includes(storeName)) {
+          navigate('/');
+          return;
+        }
+      }
       clearCache();
       const sheetRoster = await getStoreRoster(storeName);
       setRoster(sheetRoster);

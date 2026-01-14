@@ -31,7 +31,7 @@ export function DownloadPhotos() {
 
   useEffect(() => {
     loadPhotos();
-  }, [storeName, isDM]);
+  }, [storeName, isDM, district]);
 
   const loadPhotos = async () => {
     setLoading(true);
@@ -39,7 +39,7 @@ export function DownloadPhotos() {
     try {
       // DM sees all photos, store manager sees only their store's photos
       const storeFilter = isDM ? '' : storeName;
-      const photoData = await getPhotos(storeFilter);
+      const photoData = await getPhotos(storeFilter, false, district);
       setPhotos(photoData);
     } catch (err) {
       console.error('Error loading photos:', err);
@@ -164,7 +164,7 @@ export function DownloadPhotos() {
     <Layout title="Photos" showBack>
       <div className="download-page">
         <div className="download-header">
-          <h2>{isDM ? 'All Store Photos' : `${storeName} Photos`}</h2>
+          <h2>{isDM ? `${district} District Photos` : `${storeName} Photos`}</h2>
           <div className="download-header__actions">
             {isStore && (
               <Button onClick={() => setShowTeamUpload(!showTeamUpload)} variant="secondary">

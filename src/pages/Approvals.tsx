@@ -32,15 +32,15 @@ export function Approvals() {
       return;
     }
     loadPendingPhotos();
-  }, [session, navigate]);
+  }, [session, navigate, district]);
 
   const loadPendingPhotos = async () => {
     setLoading(true);
     setError('');
     try {
       const [pending, approved] = await Promise.all([
-        getPendingPhotos(),
-        getApprovedPhotos()
+        getPendingPhotos(district),
+        getApprovedPhotos(district)
       ]);
       setPendingPhotos(pending);
       setApprovedPhotos(approved);

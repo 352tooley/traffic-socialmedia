@@ -20,6 +20,7 @@ export function Reporting() {
 
   const isDM = session?.role === 'dm';
   const storeName = session?.storeName || '';
+  const district = session?.district || 'West';
 
   // For DM, use selected store filter; for store manager, use their store
   const activeStore = isDM ? selectedStore : storeName;
@@ -32,12 +33,12 @@ export function Reporting() {
     if (isDM) {
       loadStoreList();
     }
-  }, [isDM]);
+  }, [isDM, district]);
 
   const loadStoreList = async () => {
     setStoreListLoading(true);
     try {
-      const stores = await fetchStoreList();
+      const stores = await fetchStoreList(district);
       setStoreList(stores);
     } catch (err) {
       console.error('Error loading store list:', err);
@@ -74,7 +75,7 @@ export function Reporting() {
 
       // Load mobile expert upload stats for current month
       // For DM with no filter, shows all stores; otherwise filtered by activeStore
-      const stats = await getMobileExpertStats(activeStore || '', true);
+      const stats = await getMobileExpertStats(activeStore || '', true, district);
       setExpertStats(stats);
     } catch (err: any) {
       console.error('Error loading data:', err);
