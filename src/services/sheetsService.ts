@@ -8,7 +8,6 @@ const HEADER_TRAFFIC = 'Traffic';
 
 // Cache to prevent repeated fetches
 let metricsCache: { data: StoreMetrics[]; timestamp: number } | null = null;
-let rosterCache: { data: StoreRoster[]; timestamp: number } | null = null;
 let passwordsCache: { data: StoreAuth[]; timestamp: number } | null = null;
 const CACHE_DURATION = 30000; // 30 second cache for fresher data
 
@@ -345,7 +344,6 @@ export async function addToRoster(storeName: string, mobileExpertName: string): 
 
     const result = await response.json();
     if (result.success) {
-      rosterCache = null;
       return true;
     }
     console.error('Apps Script error:', result.error);
@@ -379,7 +377,6 @@ export async function removeFromRoster(storeName: string, mobileExpertName: stri
 
     const result = await response.json();
     if (result.success) {
-      rosterCache = null;
       return true;
     }
     console.error('Apps Script error:', result.error);
@@ -519,7 +516,6 @@ export async function resetStorePassword(storeName: string): Promise<boolean> {
  */
 export function clearCache() {
   metricsCache = null;
-  rosterCache = null;
   passwordsCache = null;
 }
 
