@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPhotos } from '../services/sheetsService';
+import { getApprovedPhotos } from '../services/sheetsService';
 import type { Photo } from '../types';
 import './PhotoHero.css';
 
@@ -13,13 +13,17 @@ export function PhotoHero() {
 
   const loadRecentPhotos = async () => {
     try {
-      const allPhotos = await getPhotos('', false); // Get recent, non-deleted photos
-      // Filter to only approved photos for homepage display
-      const approvedPhotos = allPhotos.filter(p => p.featuredStatus === 'approved');
+      console.log('PhotoHero: Loading approved photos...');
+      const approvedPhotos = await getApprovedPhotos();
+      console.log('PhotoHero: Received approved photos:', approvedPhotos.length, approvedPhotos);
+      
       // Get the 6 most recent approved photos for the collage
-      setPhotos(approvedPhotos.slice(0, 6));
+      const displayPhotos = approvedPhotos.slice(0, 6);
+      console.log('PhotoHero: Displaying photos:', displayPhotos.length);
+      
+      setPhotos(displayPhotos);
     } catch (err) {
-      console.error('Error loading photos for hero:', err);
+      console.error('PhotoHero: Error loading photos:', err);
       setPhotos([]);
     } finally {
       setLoading(false);
