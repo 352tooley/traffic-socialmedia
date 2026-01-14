@@ -296,23 +296,6 @@ export function Login() {
       </div>
 
       <div className="login-field">
-        <label>District</label>
-        <select
-          value={selectedDMDistrict}
-          onChange={(e) => {
-            setSelectedDMDistrict(e.target.value as District);
-            setError('');
-          }}
-        >
-          {DISTRICTS.map((district) => (
-            <option key={district} value={district}>
-              {district}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="login-field">
         <label>Password</label>
         <input
           type="password"
@@ -343,6 +326,23 @@ export function Login() {
       <h2>District Manager Login</h2>
 
       {error && <div className="login-error">{error}</div>}
+
+      <div className="login-field">
+        <label>District</label>
+        <select
+          value={selectedDMDistrict}
+          onChange={(e) => {
+            setSelectedDMDistrict(e.target.value as District);
+            setError('');
+          }}
+        >
+          {DISTRICTS.map((district) => (
+            <option key={district} value={district}>
+              {district}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="login-field">
         <label>Password</label>
