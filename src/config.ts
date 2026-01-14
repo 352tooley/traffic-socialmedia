@@ -15,7 +15,7 @@ export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX
 
 // Google Apps Script Web App URL for writing to sheets
 // Deploy the Apps Script and paste the URL here
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwirvXBchT8xS3NrVW3rCnzdbqJ73hWpbRagPqtHWXl1EdqK4TBstXoi5JZQhvHBaJvsA/exec';
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzoDGzKV92U6edop-32Apdlof5R-VW--TM47LeuUsMP_Gaa7tKwtwcI39hZvuYe3mUc2g/exec';
 
 // District configuration
 export const DISTRICTS = ['West', 'South', 'North'] as const;

@@ -709,3 +709,55 @@ function respond(success, message, data) {
   return ContentService.createTextOutput(JSON.stringify(response))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// ============================================
+// MIGRATION FUNCTION - Run once to add District column
+// ============================================
+/**
+ * Adds District column to all sheets
+ * Run this function ONCE from the Apps Script editor
+ */
+function addDistrictColumnToAllSheets() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetsToUpdate = ['Traffic Log', 'Roster', 'Password', 'Photo Log'];
+  
+  sheetsToUpdate.forEach(sheetName => {
+    try {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        Logger.log('Sheet not found: ' + sheetName);
+        return;
+      }
+      
+      // Check if District column already exists
+      const firstCell = sheet.getRange(1, 1).getValue();
+      if (firstCell === 'District' || firstCell === 'district') {
+        Logger.log('District column already exists in: ' + sheetName);
+        return;
+      }
+      
+      // Insert new column A
+      sheet.insertColumnBefore(1);
+      
+      // Add header
+      sheet.getRange(1, 1).setValue('District');
+      
+      // Get data range to fill with "West"
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        const range = sheet.getRange(2, 1, lastRow - 1, 1);
+        const values = [];
+        for (let i = 0; i < lastRow - 1; i++) {
+          values.push(['West']);
+        }
+        range.setValues(values);
+      }
+      
+      Logger.log('Added District column to: ' + sheetName);
+    } catch (error) {
+      Logger.log('Error updating ' + sheetName + ': ' + error.message);
+    }
+  });
+  
+  Logger.log('Migration complete!');
+}
