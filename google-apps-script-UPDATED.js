@@ -7,8 +7,8 @@
 // ============================================
 
 // Configuration
-const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID'; // Get from your sheet URL
-const DRIVE_FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // Folder for photos
+const SPREADSHEET_ID = '1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs';
+const DRIVE_FOLDER_ID = '1eQU0tIlrPS_b9hk01hac5FfgKoIiXR3F';
 
 // Sheet names
 const UPLOADS_SHEET = 'Uploads';
