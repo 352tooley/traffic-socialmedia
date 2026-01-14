@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getPhotos, deletePhoto } from '../services/sheetsService';
+import { getPhotos, deletePhoto, featurePhoto, uploadTeamPhoto } from '../services/sheetsService';
 import type { Photo } from '../types';
 import { Layout, Button } from '../components';
 import './DownloadPhotos.css';
@@ -12,6 +12,13 @@ export function DownloadPhotos() {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Photo | null>(null);
+  const [featuringId, setFeaturingId] = useState<string | null>(null);
+  const [showTeamUpload, setShowTeamUpload] = useState(false);
+  const [selectedTeamPhoto, setSelectedTeamPhoto] = useState<File | null>(null);
+  const [teamPhotoPreview, setTeamPhotoPreview] = useState<string | null>(null);
+  const [uploadingTeam, setUploadingTeam] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDM = session?.role === 'dm';
   const isStore = session?.role === 'store';
@@ -19,6 +26,7 @@ export function DownloadPhotos() {
 
   // Show delete button for store managers and DM
   const canDelete = isDM || isStore;
+  const canFeature = isStore; // Only RSM can recommend for homepage
 
   useEffect(() => {
     loadPhotos();
@@ -74,6 +82,75 @@ export function DownloadPhotos() {
     setConfirmDelete(null);
   };
 
+  const handleFeatureClick = async (photo: Photo) => {
+    if (!storeName) return;
+    
+    setFeaturingId(photo.fileId);
+    try {
+      const success = await featurePhoto(photo.fileId, storeName);
+      if (success) {
+        // Update local state
+        setPhotos(photos.map(p => 
+          p.fileId === photo.fileId 
+            ? { ...p, featuredStatus: 'pending', featuredBy: storeName }
+            : p
+        ));
+      } else {
+        setError('Failed to feature photo. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error featuring photo:', err);
+      setError('Failed to feature photo. Please try again.');
+    } finally {
+      setFeaturingId(null);
+    }
+  };
+
+  const handleTeamPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedTeamPhoto(file);
+      setTeamPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleTeamPhotoUpload = async () => {
+    if (!selectedTeamPhoto || !storeName) return;
+
+    setUploadingTeam(true);
+    setError('');
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedTeamPhoto);
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `${storeName}_team_${timestamp}.jpg`;
+
+        const result = await uploadTeamPhoto(storeName, storeName, base64, fileName);
+
+        if (result.success) {
+          setUploadSuccess(true);
+          setSelectedTeamPhoto(null);
+          setTeamPhotoPreview(null);
+          setTimeout(() => {
+            setUploadSuccess(false);
+            setShowTeamUpload(false);
+            loadPhotos();
+          }, 2000);
+        } else {
+          setError(result.error || 'Upload failed');
+        }
+        setUploadingTeam(false);
+      };
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError('Upload failed. Please try again.');
+      setUploadingTeam(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout title="Photos" showBack>
@@ -87,12 +164,77 @@ export function DownloadPhotos() {
       <div className="download-page">
         <div className="download-header">
           <h2>{isDM ? 'All Store Photos' : `${storeName} Photos`}</h2>
-          <Button onClick={handleRefresh} variant="secondary">
-            Refresh
-          </Button>
+          <div className="download-header__actions">
+            {isStore && (
+              <Button onClick={() => setShowTeamUpload(!showTeamUpload)} variant="secondary">
+                {showTeamUpload ? 'Cancel' : '+ Team Photo'}
+              </Button>
+            )}
+            <Button onClick={handleRefresh} variant="secondary">
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {error && <div className="download-error">{error}</div>}
+
+        {/* Team Photo Upload (RSM only) */}
+        {isStore && showTeamUpload && (
+          <div className="team-upload">
+            <h3>📸 Upload Team Photo for Homepage</h3>
+            <p className="team-upload__hint">
+              Upload a fun photo of your team. It will be sent to DM for approval before appearing on the homepage.
+            </p>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleTeamPhotoSelect}
+              style={{ display: 'none' }}
+            />
+
+            {teamPhotoPreview ? (
+              <div className="team-upload__preview">
+                <img src={teamPhotoPreview} alt="Preview" />
+                <button
+                  className="team-upload__clear"
+                  onClick={() => {
+                    setSelectedTeamPhoto(null);
+                    setTeamPhotoPreview(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <button
+                className="team-upload__select"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                📷 Select Photo
+              </button>
+            )}
+
+            {selectedTeamPhoto && (
+              <Button
+                variant="large"
+                fullWidth
+                onClick={handleTeamPhotoUpload}
+                disabled={uploadingTeam}
+              >
+                {uploadingTeam ? 'Uploading...' : 'Submit for Approval'}
+              </Button>
+            )}
+
+            {uploadSuccess && (
+              <div className="team-upload__success">
+                ✅ Photo submitted! DM will review it.
+              </div>
+            )}
+          </div>
+        )}
 
         {photos.length === 0 ? (
           <div className="download-empty">
@@ -123,6 +265,25 @@ export function DownloadPhotos() {
                   >
                     View
                   </a>
+                  {canFeature && photo.featuredStatus !== 'pending' && photo.featuredStatus !== 'approved' && (
+                    <button
+                      className="download-item__feature"
+                      onClick={() => handleFeatureClick(photo)}
+                      disabled={featuringId === photo.fileId}
+                    >
+                      {featuringId === photo.fileId ? 'Submitting...' : '⭐ Feature'}
+                    </button>
+                  )}
+                  {photo.featuredStatus === 'pending' && (
+                    <span className="download-item__status download-item__status--pending">
+                      ⏳ Pending DM Approval
+                    </span>
+                  )}
+                  {photo.featuredStatus === 'approved' && (
+                    <span className="download-item__status download-item__status--approved">
+                      ✅ On Homepage
+                    </span>
+                  )}
                   {canDelete && (
                     <button
                       className="download-item__delete"

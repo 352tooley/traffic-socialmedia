@@ -12,6 +12,7 @@ import {
   Roster,
   Passwords,
 } from './pages';
+import { Approvals } from './pages/Approvals';
 import './App.css';
 
 function AppRoutes() {
@@ -84,6 +85,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Passwords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/approvals"
+        element={
+          <ProtectedRoute>
+            <Approvals />
           </ProtectedRoute>
         }
       />

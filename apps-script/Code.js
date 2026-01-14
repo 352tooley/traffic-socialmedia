@@ -66,6 +66,24 @@ function doPost(e) {
       case 'setNotificationEmail':
         result = setNotificationEmail(data.storeName, data.email);
         break;
+      case 'featurePhoto':
+        result = featurePhoto(data.fileId, data.featuredBy);
+        break;
+      case 'approvePhoto':
+        result = approvePhoto(data.fileId);
+        break;
+      case 'rejectPhoto':
+        result = rejectPhoto(data.fileId);
+        break;
+      case 'uploadTeamPhoto':
+        result = uploadTeamPhoto(data.storeName, data.uploadedBy, data.photoData, data.fileName);
+        break;
+      case 'uploadDMPhoto':
+        result = uploadDMPhoto(data.photoData, data.fileName, data.uploadedBy);
+        break;
+      case 'getPendingPhotos':
+        result = getPendingPhotos();
+        break;
       default:
         result = { success: false, error: 'Unknown action' };
     }
@@ -112,7 +130,7 @@ function getOrCreateFolder() {
 
 /**
  * Gets or creates the Photo Log sheet
- * Columns: Store Name, Mobile Expert, Date, Time, File Name, File URL, File ID, Deleted
+ * Columns: Store Name, Mobile Expert, Date, Time, File Name, File URL, File ID, Deleted, Featured Status, Featured By, Photo Type
  */
 function getOrCreatePhotoLogSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -120,15 +138,24 @@ function getOrCreatePhotoLogSheet() {
 
   if (!sheet) {
     sheet = ss.insertSheet(PHOTO_LOG_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 8).setValues([[
-      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID', 'Deleted'
+    sheet.getRange(1, 1, 1, 11).setValues([[
+      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID', 'Deleted', 'Featured Status', 'Featured By', 'Photo Type'
     ]]);
     sheet.setFrozenRows(1);
   } else {
-    // Check if Deleted column exists, add if not (for existing sheets)
+    // Check if new columns exist, add if not
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     if (headers.length < 8 || headers[7] !== 'Deleted') {
       sheet.getRange(1, 8).setValue('Deleted');
+    }
+    if (headers.length < 9 || headers[8] !== 'Featured Status') {
+      sheet.getRange(1, 9).setValue('Featured Status');
+    }
+    if (headers.length < 10 || headers[9] !== 'Featured By') {
+      sheet.getRange(1, 10).setValue('Featured By');
+    }
+    if (headers.length < 11 || headers[10] !== 'Photo Type') {
+      sheet.getRange(1, 11).setValue('Photo Type');
     }
   }
 
@@ -170,7 +197,11 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
       time,
       fileName,
       file.getUrl(),
-      file.getId()
+      file.getId(),
+      '', // Deleted
+      '', // Featured Status
+      '', // Featured By
+      'mobile_expert' // Photo Type
     ]);
 
     // Send email notification to RSM (if configured)
@@ -236,7 +267,10 @@ function getPhotos(storeName, includeDeleted) {
         fileName: row[4],
         fileUrl: row[5],
         fileId: row[6],
-        deleted: isDeleted
+        deleted: isDeleted,
+        featuredStatus: row[8] || '',
+        featuredBy: row[9] || '',
+        photoType: row[10] || 'mobile_expert'
       });
     }
 
@@ -491,6 +525,219 @@ function sendPhotoNotification(storeName, mobileExpertName, fileUrl, date, time)
     Logger.log('ERROR in sendPhotoNotification: ' + error.toString());
     Logger.log('Error stack: ' + error.stack);
     // Don't throw - notification failure shouldn't break upload
+  }
+}
+
+// ============ PHOTO FEATURING & APPROVAL ============
+
+/**
+ * Marks a photo as pending approval (RSM recommends for homepage)
+ */
+function featurePhoto(fileId, featuredBy) {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][6] === fileId) {
+        sheet.getRange(i + 1, 9).setValue('pending'); // Featured Status
+        sheet.getRange(i + 1, 10).setValue(featuredBy); // Featured By
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: 'Photo not found' };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Approves a photo for homepage display (DM only)
+ */
+function approvePhoto(fileId) {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][6] === fileId) {
+        sheet.getRange(i + 1, 9).setValue('approved');
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: 'Photo not found' };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Rejects a photo from homepage (DM only)
+ */
+function rejectPhoto(fileId) {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][6] === fileId) {
+        sheet.getRange(i + 1, 9).setValue('rejected');
+        return { success: true };
+      }
+    }
+
+    return { success: false, error: 'Photo not found' };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * RSM uploads a team photo (goes to DM approval)
+ */
+function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
+  try {
+    const folder = getOrCreateFolder();
+
+    // Decode base64 photo data
+    const decodedData = Utilities.base64Decode(photoData);
+    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
+
+    // Create file in Drive
+    const file = folder.createFile(blob);
+    file.setDescription(`Store: ${storeName}, Team Photo by: ${uploadedBy}`);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Get current date/time
+    const now = new Date();
+    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
+    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
+
+    // Log to Photo Log sheet
+    const sheet = getOrCreatePhotoLogSheet();
+    sheet.appendRow([
+      storeName,
+      uploadedBy,
+      date,
+      time,
+      fileName,
+      file.getUrl(),
+      file.getId(),
+      '', // Deleted
+      'pending', // Featured Status - auto-pending for team photos
+      uploadedBy, // Featured By
+      'team' // Photo Type
+    ]);
+
+    return {
+      success: true,
+      fileUrl: file.getUrl(),
+      fileId: file.getId()
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * DM uploads a photo (auto-approved for homepage)
+ */
+function uploadDMPhoto(photoData, fileName, uploadedBy) {
+  try {
+    const folder = getOrCreateFolder();
+
+    // Decode base64 photo data
+    const decodedData = Utilities.base64Decode(photoData);
+    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
+
+    // Create file in Drive
+    const file = folder.createFile(blob);
+    file.setDescription('DM Photo by: ' + uploadedBy);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    // Get current date/time
+    const now = new Date();
+    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
+    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
+
+    // Log to Photo Log sheet
+    const sheet = getOrCreatePhotoLogSheet();
+    sheet.appendRow([
+      'District',
+      uploadedBy,
+      date,
+      time,
+      fileName,
+      file.getUrl(),
+      file.getId(),
+      '', // Deleted
+      'approved', // Featured Status - auto-approved for DM
+      uploadedBy, // Featured By
+      'dm' // Photo Type
+    ]);
+
+    return {
+      success: true,
+      fileUrl: file.getUrl(),
+      fileId: file.getId()
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Gets all pending photos for DM approval
+ */
+function getPendingPhotos() {
+  try {
+    const sheet = getOrCreatePhotoLogSheet();
+    const data = sheet.getDataRange().getValues();
+
+    const photos = [];
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const isDeleted = row[7] === 'Yes' || row[7] === true;
+      const featuredStatus = row[8] || '';
+
+      // Only get pending, non-deleted photos
+      if (isDeleted || featuredStatus !== 'pending') {
+        continue;
+      }
+
+      // Format dates
+      let dateStr = row[2];
+      if (dateStr instanceof Date) {
+        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
+      } else if (dateStr) {
+        dateStr = String(dateStr);
+      }
+
+      let timeStr = row[3];
+      if (timeStr instanceof Date) {
+        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
+      } else if (timeStr) {
+        timeStr = String(timeStr);
+      }
+
+      photos.push({
+        storeName: row[0],
+        mobileExpert: row[1],
+        date: dateStr,
+        time: timeStr,
+        fileName: row[4],
+        fileUrl: row[5],
+        fileId: row[6],
+        featuredBy: row[9] || '',
+        photoType: row[10] || 'mobile_expert'
+      });
+    }
+
+    return { success: true, photos: photos };
+  } catch (error) {
+    return { success: false, error: error.toString(), photos: [] };
   }
 }
 

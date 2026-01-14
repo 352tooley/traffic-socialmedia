@@ -31,6 +31,9 @@ export interface Photo {
   fileUrl: string;
   fileId: string;
   deleted?: boolean;
+  featuredStatus?: string; // '', 'pending', 'approved', 'rejected'
+  featuredBy?: string;
+  photoType?: string; // 'mobile_expert', 'team', 'dm'
 }
 
 // Store password (from Google Sheet)

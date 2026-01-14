@@ -8,12 +8,20 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .download-header h2 {
   font-size: 1.25rem;
-  color: #1e293b;
+  color: var(--dark);
   margin: 0;
+}
+
+.download-header__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .download-loading {
@@ -98,6 +106,7 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .download-item__link {
@@ -137,6 +146,46 @@
 .download-item__delete:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.download-item__feature {
+  background: var(--magenta-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.download-item__feature:hover {
+  background: var(--magenta-dark);
+}
+
+.download-item__feature:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.download-item__status {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.download-item__status--pending {
+  background: #FFF3CD;
+  color: #856404;
+}
+
+.download-item__status--approved {
+  background: #D4EDDA;
+  color: #155724;
 }
 
 /* Delete Confirmation Modal */
@@ -203,9 +252,96 @@
   background: #b91c1c;
 }
 
+/* Team Photo Upload */
+.team-upload {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--magenta-primary);
+}
+
+.team-upload h3 {
+  font-size: 1.1rem;
+  color: var(--dark);
+  margin: 0 0 0.5rem 0;
+}
+
+.team-upload__hint {
+  color: var(--medium-gray);
+  font-size: 0.9rem;
+  margin: 0 0 1.25rem 0;
+}
+
+.team-upload__select {
+  width: 100%;
+  padding: 1.25rem;
+  border: 2px dashed var(--lighter-gray);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--dark);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.team-upload__select:hover {
+  border-color: var(--magenta-primary);
+  background: #FFF4F7;
+  color: var(--magenta-primary);
+}
+
+.team-upload__preview {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  max-height: 300px;
+}
+
+.team-upload__preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.team-upload__clear {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-upload__clear:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.team-upload__success {
+  background: #D4EDDA;
+  color: #155724;
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
 .download-count {
   text-align: center;
-  color: #94a3b8;
+  color: var(--medium-gray);
   font-size: 0.85rem;
   margin-top: 1.5rem;
 }

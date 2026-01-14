@@ -767,3 +767,179 @@ export async function deletePhoto(fileId: string, storeName: string): Promise<bo
     return false;
   }
 }
+
+/**
+ * Features a photo for DM approval (RSM recommends for homepage)
+ */
+export async function featurePhoto(fileId: string, featuredBy: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'featurePhoto',
+        fileId,
+        featuredBy,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error featuring photo:', error);
+    return false;
+  }
+}
+
+/**
+ * Approves a photo for homepage display (DM only)
+ */
+export async function approvePhoto(fileId: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'approvePhoto',
+        fileId,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error approving photo:', error);
+    return false;
+  }
+}
+
+/**
+ * Rejects a photo from homepage (DM only)
+ */
+export async function rejectPhoto(fileId: string): Promise<boolean> {
+  if (!APPS_SCRIPT_URL) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'rejectPhoto',
+        fileId,
+      }),
+    });
+
+    const result = await response.json();
+    return result.success;
+  } catch (error) {
+    console.error('Error rejecting photo:', error);
+    return false;
+  }
+}
+
+/**
+ * Gets all pending photos for DM approval
+ */
+export async function getPendingPhotos(): Promise<Photo[]> {
+  if (!APPS_SCRIPT_URL) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getPendingPhotos',
+      }),
+    });
+
+    const result = await response.json();
+    return result.success ? result.photos : [];
+  } catch (error) {
+    console.error('Error getting pending photos:', error);
+    return [];
+  }
+}
+
+/**
+ * Uploads a team photo (RSM) - goes to DM approval
+ */
+export async function uploadTeamPhoto(
+  storeName: string,
+  uploadedBy: string,
+  photoData: string,
+  fileName: string
+): Promise<{ success: boolean; fileUrl?: string; error?: string }> {
+  if (!APPS_SCRIPT_URL) {
+    return { success: false, error: 'Apps Script URL not configured' };
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'uploadTeamPhoto',
+        storeName,
+        uploadedBy,
+        photoData,
+        fileName,
+      }),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error uploading team photo:', error);
+    return { success: false, error: 'Upload failed' };
+  }
+}
+
+/**
+ * Uploads a DM photo (auto-approved for homepage)
+ */
+export async function uploadDMPhoto(
+  uploadedBy: string,
+  photoData: string,
+  fileName: string
+): Promise<{ success: boolean; fileUrl?: string; error?: string }> {
+  if (!APPS_SCRIPT_URL) {
+    return { success: false, error: 'Apps Script URL not configured' };
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'uploadDMPhoto',
+        uploadedBy,
+        photoData,
+        fileName,
+      }),
+    });
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error uploading DM photo:', error);
+    return { success: false, error: 'Upload failed' };
+  }
+}

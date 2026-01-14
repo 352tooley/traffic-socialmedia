@@ -5,3 +5,4 @@ export { Button } from './Button';
 export { Loading } from './Loading';
 export { Layout } from './Layout';
 export { ProtectedRoute } from './ProtectedRoute';
+export { PhotoHero } from './PhotoHero';

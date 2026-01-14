@@ -14,8 +14,10 @@ export function PhotoHero() {
   const loadRecentPhotos = async () => {
     try {
       const allPhotos = await getPhotos('', false); // Get recent, non-deleted photos
-      // Get the 6 most recent photos for the collage
-      setPhotos(allPhotos.slice(0, 6));
+      // Filter to only approved photos for homepage display
+      const approvedPhotos = allPhotos.filter(p => p.featuredStatus === 'approved');
+      // Get the 6 most recent approved photos for the collage
+      setPhotos(approvedPhotos.slice(0, 6));
     } catch (err) {
       console.error('Error loading photos for hero:', err);
       setPhotos([]);
