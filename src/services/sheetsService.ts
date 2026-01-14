@@ -238,38 +238,49 @@ export async function getDistrictTotals(): Promise<StoreMetrics | null> {
 // ==================== ROSTER FUNCTIONS ====================
 
 /**
- * Fetches roster data from the Roster tab
- * Format expected: Store Name, Mobile Expert Name (one row per mobile expert)
+ * Fetches roster data directly from Apps Script (no caching delays)
+ * Falls back to CSV if Apps Script not configured
  */
-export async function fetchRoster(): Promise<StoreRoster[]> {
-  // Return cached data if still valid
-  if (rosterCache && Date.now() - rosterCache.timestamp < CACHE_DURATION) {
-    return rosterCache.data;
+export async function fetchRoster(storeName?: string): Promise<StoreRoster[]> {
+  // Try Apps Script first for real-time data
+  if (APPS_SCRIPT_URL) {
+    try {
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'getRoster',
+          storeName: storeName || '',
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        return result.roster;
+      }
+    } catch (error) {
+      console.error('Error fetching roster from Apps Script:', error);
+    }
   }
 
+  // Fallback to CSV (may have caching delays)
   try {
     const response = await fetch(ROSTER_CSV_URL);
     if (!response.ok) {
-      // If roster sheet doesn't exist yet, return empty rosters for all stores
-      return STORE_LIST.map(storeName => ({ storeName, mobileExperts: [] }));
+      return STORE_LIST.map(store => ({ storeName: store, mobileExperts: [] }));
     }
 
     const csvText = await response.text();
-    const roster = parseRosterCSV(csvText);
-
-    // Cache the results
-    rosterCache = { data: roster, timestamp: Date.now() };
-
-    return roster;
+    return parseRosterCSV(csvText);
   } catch (error) {
     console.error('Error fetching roster:', error);
-    // Return empty rosters on error
-    return STORE_LIST.map(storeName => ({ storeName, mobileExperts: [] }));
+    return STORE_LIST.map(store => ({ storeName: store, mobileExperts: [] }));
   }
 }
 
 /**
- * Parses roster CSV into StoreRoster array
+ * Parses roster CSV into StoreRoster array (fallback only)
  */
 function parseRosterCSV(csvText: string): StoreRoster[] {
   const lines = csvText.trim().split('\n');
@@ -303,10 +314,10 @@ function parseRosterCSV(csvText: string): StoreRoster[] {
 }
 
 /**
- * Gets roster for a specific store
+ * Gets roster for a specific store (real-time from Apps Script)
  */
 export async function getStoreRoster(storeName: string): Promise<string[]> {
-  const allRosters = await fetchRoster();
+  const allRosters = await fetchRoster(storeName);
   const storeRoster = allRosters.find(r => r.storeName === storeName);
   return storeRoster?.mobileExperts || [];
 }

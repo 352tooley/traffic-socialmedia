@@ -55,6 +55,9 @@ function doPost(e) {
       case 'deletePhoto':
         result = deletePhoto(data.fileId, data.storeName);
         break;
+      case 'getRoster':
+        result = getRoster(data.storeName);
+        break;
       default:
         result = { success: false, error: 'Unknown action' };
     }
@@ -301,6 +304,52 @@ function removeFromRoster(storeName, mobileExpertName) {
     }
   }
   return { success: false, error: 'Not found' };
+}
+
+/**
+ * Gets roster for a specific store (or all stores if storeName is empty)
+ * Returns directly from sheet - no caching delays
+ */
+function getRoster(storeName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(ROSTER_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: true, roster: [] };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const rosterMap = {};
+
+    // Skip header row
+    for (let i = 1; i < data.length; i++) {
+      const rowStoreName = data[i][0]?.toString().trim();
+      const mobileExpert = data[i][1]?.toString().trim();
+
+      if (!rowStoreName || !mobileExpert) continue;
+
+      // Filter by store if provided
+      if (storeName && rowStoreName !== storeName) continue;
+
+      if (!rosterMap[rowStoreName]) {
+        rosterMap[rowStoreName] = [];
+      }
+      if (!rosterMap[rowStoreName].includes(mobileExpert)) {
+        rosterMap[rowStoreName].push(mobileExpert);
+      }
+    }
+
+    // Convert to array format
+    const roster = Object.keys(rosterMap).map(store => ({
+      storeName: store,
+      mobileExperts: rosterMap[store].sort()
+    }));
+
+    return { success: true, roster: roster };
+  } catch (error) {
+    return { success: false, error: error.toString(), roster: [] };
+  }
 }
 
 // ============ PASSWORD FUNCTIONS ============
