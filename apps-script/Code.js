@@ -135,6 +135,13 @@ function getOrCreateFolder() {
 }
 
 /**
+ * Converts a Drive file ID to a direct image URL
+ */
+function getDirectImageUrl(fileId) {
+  return 'https://drive.google.com/uc?export=view&id=' + fileId;
+}
+
+/**
  * Gets or creates the Photo Log sheet
  * Columns: Store Name, Mobile Expert, Date, Time, File Name, File URL, File ID, Deleted, Featured Status, Featured By, Photo Type
  */
@@ -196,14 +203,17 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
+    const fileId = file.getId();
+    const directUrl = getDirectImageUrl(fileId);
+    
     sheet.appendRow([
       storeName,
       mobileExpertName,
       date,
       time,
       fileName,
-      file.getUrl(),
-      file.getId(),
+      directUrl,
+      fileId,
       '', // Deleted
       '', // Featured Status
       '', // Featured By
@@ -211,12 +221,12 @@ function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
     ]);
 
     // Send email notification to RSM (if configured)
-    sendPhotoNotification(storeName, mobileExpertName, file.getUrl(), date, time);
+    sendPhotoNotification(storeName, mobileExpertName, directUrl, date, time);
 
     return {
       success: true,
-      fileUrl: file.getUrl(),
-      fileId: file.getId()
+      fileUrl: directUrl,
+      fileId: fileId
     };
   } catch (error) {
     return { success: false, error: error.toString() };
@@ -265,14 +275,21 @@ function getPhotos(storeName, includeDeleted) {
         timeStr = String(timeStr);
       }
 
+      // Convert old viewer URLs to direct URLs for backwards compatibility
+      let fileUrl = row[5];
+      const fileId = row[6];
+      if (fileId && (!fileUrl || fileUrl.includes('/file/d/') || fileUrl.includes('/view'))) {
+        fileUrl = getDirectImageUrl(fileId);
+      }
+      
       photos.push({
         storeName: photoStoreName,
         mobileExpert: row[1],
         date: dateStr,
         time: timeStr,
         fileName: row[4],
-        fileUrl: row[5],
-        fileId: row[6],
+        fileUrl: fileUrl,
+        fileId: fileId,
         deleted: isDeleted,
         featuredStatus: row[8] || '',
         featuredBy: row[9] || '',
@@ -623,14 +640,17 @@ function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
+    const fileId = file.getId();
+    const directUrl = getDirectImageUrl(fileId);
+    
     sheet.appendRow([
       storeName,
       uploadedBy,
       date,
       time,
       fileName,
-      file.getUrl(),
-      file.getId(),
+      directUrl,
+      fileId,
       '', // Deleted
       'pending', // Featured Status - auto-pending for team photos
       uploadedBy, // Featured By
@@ -639,8 +659,8 @@ function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
 
     return {
       success: true,
-      fileUrl: file.getUrl(),
-      fileId: file.getId()
+      fileUrl: directUrl,
+      fileId: fileId
     };
   } catch (error) {
     return { success: false, error: error.toString() };
@@ -670,14 +690,17 @@ function uploadDMPhoto(photoData, fileName, uploadedBy) {
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
+    const fileId = file.getId();
+    const directUrl = getDirectImageUrl(fileId);
+    
     sheet.appendRow([
       'District',
       uploadedBy,
       date,
       time,
       fileName,
-      file.getUrl(),
-      file.getId(),
+      directUrl,
+      fileId,
       '', // Deleted
       'approved', // Featured Status - auto-approved for DM
       uploadedBy, // Featured By
@@ -686,8 +709,8 @@ function uploadDMPhoto(photoData, fileName, uploadedBy) {
 
     return {
       success: true,
-      fileUrl: file.getUrl(),
-      fileId: file.getId()
+      fileUrl: directUrl,
+      fileId: fileId
     };
   } catch (error) {
     return { success: false, error: error.toString() };
