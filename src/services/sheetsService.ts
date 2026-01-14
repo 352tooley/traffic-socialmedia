@@ -587,6 +587,55 @@ export async function getPhotos(storeName?: string): Promise<Photo[]> {
 }
 
 /**
+ * Mobile expert upload statistics
+ */
+export interface MobileExpertStats {
+  mobileExpert: string;
+  storeName: string;
+  uploadCount: number;
+}
+
+/**
+ * Gets upload stats for mobile experts, optionally filtered by store and current month
+ */
+export async function getMobileExpertStats(storeName?: string, currentMonthOnly: boolean = true): Promise<MobileExpertStats[]> {
+  const photos = await getPhotos(storeName);
+
+  // Filter to current month if requested
+  const filteredPhotos = currentMonthOnly
+    ? photos.filter((photo) => {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        // Parse date string (MM/dd/yyyy format)
+        const [month] = photo.date.split('/').map(Number);
+        const photoYear = parseInt(photo.date.split('/')[2]);
+        return month - 1 === currentMonth && photoYear === currentYear;
+      })
+    : photos;
+
+  // Count uploads per mobile expert
+  const statsMap = new Map<string, MobileExpertStats>();
+
+  for (const photo of filteredPhotos) {
+    const key = `${photo.storeName}-${photo.mobileExpert}`;
+    const existing = statsMap.get(key);
+    if (existing) {
+      existing.uploadCount++;
+    } else {
+      statsMap.set(key, {
+        mobileExpert: photo.mobileExpert,
+        storeName: photo.storeName,
+        uploadCount: 1,
+      });
+    }
+  }
+
+  // Convert to array and sort by upload count descending
+  return Array.from(statsMap.values()).sort((a, b) => b.uploadCount - a.uploadCount);
+}
+
+/**
  * Deletes a photo from Google Drive
  */
 export async function deletePhoto(fileId: string, storeName: string): Promise<boolean> {

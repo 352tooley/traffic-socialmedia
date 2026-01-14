@@ -39,6 +39,102 @@
   margin-top: 1rem;
 }
 
+/* Mobile Expert Upload Stats */
+.district-experts {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.district-experts__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.district-experts__header .district-section-title {
+  margin: 0;
+}
+
+.district-experts__filter {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: white;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.district-experts__filter:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.district-experts__empty {
+  color: #94a3b8;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+  margin: 0;
+}
+
+.district-experts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.district-expert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.district-expert-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.district-expert-row__name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.district-expert-row__store {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.district-expert-row__count {
+  font-size: 0.9rem;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.district-experts__total {
+  margin: 1rem 0 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+  color: #64748b;
+  text-align: center;
+}
+
 .rank-badge {
   display: inline-flex;
   align-items: center;

@@ -51,6 +51,69 @@
   border-radius: 12px;
 }
 
+/* Mobile Expert Upload Stats */
+.reporting-experts {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 1.5rem;
+}
+
+.reporting-experts__title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.reporting-experts__empty {
+  color: #94a3b8;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem 0;
+  margin: 0;
+}
+
+.reporting-experts__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.reporting-expert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.reporting-expert-row__name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.reporting-expert-row__count {
+  font-size: 0.9rem;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.reporting-experts__total {
+  margin: 1rem 0 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+  color: #64748b;
+  text-align: center;
+}
+
 @media (max-width: 480px) {
   .reporting-kpis {
     grid-template-columns: 1fr;

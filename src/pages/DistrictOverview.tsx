@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMetricsSortedByPerformance, getDistrictTotals } from '../services/sheetsService';
+import { getMetricsSortedByPerformance, getDistrictTotals, getMobileExpertStats, getStoreList } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
+import type { MobileExpertStats } from '../services/sheetsService';
 import { Layout, KpiCard, DataTable, Loading } from '../components';
 import type { Column } from '../components';
 import './DistrictOverview.css';
@@ -12,8 +13,12 @@ export function DistrictOverview() {
   const navigate = useNavigate();
   const [stores, setStores] = useState<StoreMetrics[]>([]);
   const [districtTotals, setDistrictTotals] = useState<StoreMetrics | null>(null);
+  const [expertStats, setExpertStats] = useState<MobileExpertStats[]>([]);
+  const [selectedStore, setSelectedStore] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const storeList = getStoreList();
 
   useEffect(() => {
     // Redirect if not DM
@@ -24,6 +29,10 @@ export function DistrictOverview() {
 
     loadData();
   }, [session, navigate]);
+
+  useEffect(() => {
+    loadExpertStats();
+  }, [selectedStore]);
 
   const loadData = async () => {
     setLoading(true);
@@ -37,11 +46,24 @@ export function DistrictOverview() {
       // Load district totals
       const totals = await getDistrictTotals();
       setDistrictTotals(totals);
+
+      // Load mobile expert stats (all stores initially)
+      const stats = await getMobileExpertStats('', true);
+      setExpertStats(stats);
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError('Failed to load district data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadExpertStats = async () => {
+    try {
+      const stats = await getMobileExpertStats(selectedStore || '', true);
+      setExpertStats(stats);
+    } catch (err) {
+      console.error('Error loading expert stats:', err);
     }
   };
 
@@ -74,6 +96,9 @@ export function DistrictOverview() {
     ...store,
     rank: index + 1,
   }));
+
+  // Get current month name
+  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
 
   if (loading) {
     return (
@@ -111,6 +136,53 @@ export function DistrictOverview() {
             </div>
           </div>
         )}
+
+        {/* Mobile Expert Upload Stats */}
+        <div className="district-experts">
+          <div className="district-experts__header">
+            <h2 className="district-section-title">
+              Mobile Expert Uploads - {currentMonth}
+            </h2>
+            <select
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              className="district-experts__filter"
+            >
+              <option value="">All Stores</option>
+              {storeList.map((store) => (
+                <option key={store} value={store}>
+                  {store}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {expertStats.length === 0 ? (
+            <p className="district-experts__empty">
+              No uploads this month{selectedStore ? ` for ${selectedStore}` : ''}.
+            </p>
+          ) : (
+            <div className="district-experts__list">
+              {expertStats.map((stat, index) => (
+                <div key={`${stat.storeName}-${stat.mobileExpert}-${index}`} className="district-expert-row">
+                  <div className="district-expert-row__info">
+                    <span className="district-expert-row__name">{stat.mobileExpert}</span>
+                    {!selectedStore && (
+                      <span className="district-expert-row__store">{stat.storeName}</span>
+                    )}
+                  </div>
+                  <span className="district-expert-row__count">
+                    {stat.uploadCount} upload{stat.uploadCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="district-experts__total">
+            Total: {expertStats.reduce((sum, s) => sum + s.uploadCount, 0)} uploads from {expertStats.length} mobile expert{expertStats.length !== 1 ? 's' : ''}
+          </p>
+        </div>
 
         {/* Store Rankings */}
         <div className="district-rankings">
