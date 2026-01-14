@@ -93,6 +93,9 @@ function doPost(e) {
       case 'getTrafficDataDate':
         result = getTrafficDataDate();
         break;
+      case 'fixTrafficFormulas':
+        result = fixTrafficFormulas();
+        break;
       default:
         result = { success: false, error: 'Unknown action: ' + data.action };
     }
@@ -114,6 +117,24 @@ function doGet(e) {
     const storeName = e.parameter.storeName;
     const includeDeleted = e.parameter.includeDeleted === 'true';
     const result = getPhotos(storeName, includeDeleted);
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'fixTrafficFormulas') {
+    const result = fixTrafficFormulas();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'cleanupTrafficLog') {
+    const result = cleanupTrafficLog();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'getTrafficDataDate') {
+    const result = getTrafficDataDate();
     return ContentService.createTextOutput(JSON.stringify(result))
       .setMimeType(ContentService.MimeType.JSON);
   }
@@ -947,6 +968,129 @@ function testScript() {
 }
 
 /**
+ * Cleans up duplicate rows in Traffic Log sheet
+ * Keeps only the last occurrence of each store (newest data)
+ */
+function cleanupTrafficLog() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: false, error: 'Traffic Log sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) {
+      return { success: true, message: 'No data to clean' };
+    }
+
+    const headers = data[0];
+
+    // Find store column
+    let storeCol = 0;
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i].toString().toLowerCase() === 'store') {
+        storeCol = i;
+        break;
+      }
+    }
+
+    // Keep only the LAST occurrence of each store (newest)
+    const storeMap = new Map();
+    for (let i = 1; i < data.length; i++) {
+      const storeName = data[i][storeCol]?.toString().trim();
+      if (storeName) {
+        storeMap.set(storeName, data[i]); // Overwrites with latest
+      }
+    }
+
+    // Clear sheet and rewrite with deduplicated data
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+    const uniqueRows = Array.from(storeMap.values());
+    if (uniqueRows.length > 0) {
+      sheet.getRange(2, 1, uniqueRows.length, headers.length).setValues(uniqueRows);
+    }
+
+    return {
+      success: true,
+      message: `Cleaned up Traffic Log: ${data.length - 1} rows -> ${uniqueRows.length} unique stores`
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
+ * Fixes the Traffic column formulas in the main metrics sheet
+ * Updates formulas to properly reference Traffic Log sheet
+ */
+function fixTrafficFormulas() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Find the main metrics sheet by gid
+    const sheets = ss.getSheets();
+    let metricsSheet = null;
+    for (const sheet of sheets) {
+      if (sheet.getSheetId() === 147391931) {
+        metricsSheet = sheet;
+        break;
+      }
+    }
+
+    if (!metricsSheet) {
+      return { success: false, error: 'Main metrics sheet (gid=147391931) not found' };
+    }
+
+    const data = metricsSheet.getDataRange().getValues();
+    const headers = data[0];
+
+    // Find column indices
+    let storeCol = -1, trafficCol = -1;
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i].toString().toLowerCase();
+      if (h === 'store name') storeCol = i;
+      if (h === 'traffic') trafficCol = i;
+    }
+
+    if (trafficCol === -1) {
+      return { success: false, error: 'Traffic column not found' };
+    }
+
+    // Update Traffic column formulas for each store row
+    let fixedCount = 0;
+    for (let row = 1; row < data.length; row++) {
+      const storeName = data[row][storeCol];
+      if (!storeName || storeName.toString().toLowerCase() === 'total') continue;
+
+      // Set formula: =IFERROR(VLOOKUP(A{row+1},'Traffic Log'!A:B,2,FALSE),0)
+      const cell = metricsSheet.getRange(row + 1, trafficCol + 1);
+      const formula = `=IFERROR(VLOOKUP(A${row + 1},'Traffic Log'!A:B,2,FALSE),0)`;
+      cell.setFormula(formula);
+      fixedCount++;
+    }
+
+    // Fix Total row - sum of traffic
+    const totalRow = data.findIndex(r => r[storeCol]?.toString().toLowerCase() === 'total');
+    if (totalRow !== -1) {
+      const totalCell = metricsSheet.getRange(totalRow + 1, trafficCol + 1);
+      totalCell.setFormula(`=SUM(C2:C${totalRow})`);
+    }
+
+    return {
+      success: true,
+      message: `Fixed ${fixedCount} traffic formulas`,
+      sheetName: metricsSheet.getName()
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
+}
+
+/**
  * Gets the traffic data date from the Traffic Log sheet
  * Returns the dataDate from the first data row (all rows should have same date)
  */
@@ -959,7 +1103,8 @@ function getTrafficDataDate() {
       return { success: false, error: 'Traffic Log sheet not found' };
     }
 
-    const data = sheet.getDataRange().getValues();
+    // Use getDisplayValues to get exact string as shown in sheet (avoids timezone issues)
+    const data = sheet.getDataRange().getDisplayValues();
 
     if (data.length < 2) {
       return { success: true, dataDate: null };
@@ -979,12 +1124,20 @@ function getTrafficDataDate() {
       return { success: true, dataDate: null };
     }
 
-    // Get the date from the first data row
-    const dataDate = data[1][dateColIndex];
+    // Get the date from the first data row (already a string from getDisplayValues)
+    let dataDate = data[1][dateColIndex];
+
+    // Convert MM/DD/YYYY to readable format if needed
+    if (dataDate && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dataDate)) {
+      const [month, day, year] = dataDate.split('/');
+      const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+      dataDate = months[parseInt(month) - 1] + ' ' + parseInt(day) + ', ' + year;
+    }
 
     return {
       success: true,
-      dataDate: dataDate ? dataDate.toString() : null
+      dataDate: dataDate || null
     };
   } catch (error) {
     return { success: false, error: error.toString() };

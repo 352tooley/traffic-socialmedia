@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMetricsSortedByPerformance, getDistrictTotals, getTrafficDataDate } from '../services/sheetsService';
+import { getMetricsSortedByPerformance, getDistrictTotals, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import { Layout, KpiCard, DataTable, Loading } from '../components';
 import type { Column } from '../components';
@@ -54,7 +54,7 @@ export function DistrictOverview() {
     navigate(`/store/${encodeURIComponent(store.storeName)}`);
   };
 
-  const columns: Column<StoreMetrics & { rank: number }>[] = [
+  const columns: Column<StoreMetrics & { rank: number; goal: number }>[] = [
     {
       key: 'rank',
       header: '#',
@@ -62,7 +62,13 @@ export function DistrictOverview() {
       render: (item) => <span className="rank-badge">{item.rank}</span>,
     },
     { key: 'storeName', header: 'Store' },
-    { key: 'submissions', header: 'Submissions', align: 'center' },
+    { key: 'submissions', header: 'Subs', align: 'center' },
+    {
+      key: 'goal',
+      header: 'Goal',
+      align: 'center',
+      render: (item) => <span className="goal-value">{item.goal}</span>,
+    },
     { key: 'traffic', header: 'Traffic', align: 'center' },
     {
       key: 'submissionsPer100',
@@ -74,10 +80,11 @@ export function DistrictOverview() {
     },
   ];
 
-  // Add rank to stores
+  // Add rank and goal to stores
   const rankedStores = stores.map((store, index) => ({
     ...store,
     rank: index + 1,
+    goal: calculateMonthlyGoal(store.traffic, trafficDataDate),
   }));
 
   if (loading) {
@@ -99,18 +106,24 @@ export function DistrictOverview() {
             <h2 className="district-section-title">District Totals</h2>
             <div className="district-kpis">
               <KpiCard
-                title="Total Submissions"
+                title="Submissions"
                 value={districtTotals.submissions}
                 color="blue"
               />
               <KpiCard
-                title="Total Traffic"
+                title="Goal"
+                value={calculateMonthlyGoal(districtTotals.traffic, trafficDataDate)}
+                subtitle="3 per 100 trend"
+                color="purple"
+              />
+              <KpiCard
+                title="Traffic"
                 value={districtTotals.traffic}
                 subtitle={trafficDataDate ? `Through ${trafficDataDate}` : undefined}
                 color="green"
               />
               <KpiCard
-                title="District Per 100"
+                title="Per 100"
                 value={districtTotals.submissionsPer100.toFixed(2)}
                 color="orange"
               />

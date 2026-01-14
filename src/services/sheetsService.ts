@@ -267,6 +267,51 @@ export async function getTrafficDataDate(): Promise<string | null> {
   }
 }
 
+/**
+ * Calculates the monthly goal for a store based on traffic trend
+ * Formula: (traffic / daysElapsed) * totalDaysInMonth * 0.03
+ * Goal is 3 submissions per 100 traffic
+ */
+export function calculateMonthlyGoal(traffic: number, dataDate: string | null): number {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Get total days in current month
+  const totalDaysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  // Parse the data date to get days elapsed
+  let daysElapsed = now.getDate(); // Default to current day
+
+  if (dataDate) {
+    // Parse "January 10, 2026" format
+    const match = dataDate.match(/([A-Za-z]+)\s+(\d+),\s+(\d+)/);
+    if (match) {
+      const months = ['january', 'february', 'march', 'april', 'may', 'june',
+                      'july', 'august', 'september', 'october', 'november', 'december'];
+      const monthIndex = months.indexOf(match[1].toLowerCase());
+      const day = parseInt(match[2]);
+      const year = parseInt(match[3]);
+
+      // Only use this date if it's in the current month
+      if (year === currentYear && monthIndex === currentMonth) {
+        daysElapsed = day;
+      }
+    }
+  }
+
+  // Avoid division by zero
+  if (daysElapsed === 0) daysElapsed = 1;
+
+  // Calculate traffic trend for the month
+  const trafficTrend = (traffic / daysElapsed) * totalDaysInMonth;
+
+  // Goal is 3 submissions per 100 traffic
+  const goal = Math.round(trafficTrend * 0.03);
+
+  return goal;
+}
+
 // ==================== ROSTER FUNCTIONS ====================
 
 /**

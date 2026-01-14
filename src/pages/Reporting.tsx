@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, getStoreList, getTrafficDataDate } from '../services/sheetsService';
+import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, getStoreList, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import type { MobileExpertStats } from '../services/sheetsService';
 import { Layout, KpiCard, Loading } from '../components';
@@ -115,10 +115,15 @@ export function Reporting() {
         {activeStore && metrics ? (
           <div className="reporting-kpis">
             <KpiCard
-              title="Total Submissions"
+              title="Submissions"
               value={metrics.submissions}
-              subtitle="From Google Sheet"
               color="blue"
+            />
+            <KpiCard
+              title="Goal"
+              value={calculateMonthlyGoal(metrics.traffic, trafficDataDate)}
+              subtitle="3 per 100 trend"
+              color="purple"
             />
             <KpiCard
               title="Traffic"
@@ -127,9 +132,8 @@ export function Reporting() {
               color="green"
             />
             <KpiCard
-              title="Submissions / 100"
+              title="Per 100"
               value={metrics.submissionsPer100.toFixed(2)}
-              subtitle="Performance rate"
               color="orange"
             />
           </div>

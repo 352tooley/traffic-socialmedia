@@ -1,0 +1,2913 @@
+{
+  "updatedAt": "2026-01-14T12:43:06.729Z",
+  "createdAt": "2026-01-09T07:37:04.209Z",
+  "id": "7dXYNzO7bCJjaCGa",
+  "name": "Gmail Social Media Ticket Monitor",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        -416,
+        160
+      ],
+      "typeVersion": 1.1,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst currentMonth = monthNames[new Date().getMonth()];\n\nfor (const item of $input.all()) {\n  const email = item.json;\n  const rawSubject = email.subject || email.Subject || '';\n  const fromField = email.from || email.From || '';\n  const messageId = email.id || email.messageId || '';\n  const receivedDateTime = email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : new Date().toISOString();\n\n  const emailBody = email.text || email.snippet || '';\n  const emailBodyHtml = email.html || '';\n  const fullBody = emailBody + ' ' + emailBodyHtml;\n  const headers = email.payload?.headers || email.headers || [];\n  let headerFrom = '';\n  for (const h of headers) {\n    if (h.name?.toLowerCase() === 'from' || h.name?.toLowerCase() === 'x-original-from') {\n      headerFrom += ' ' + (h.value || '');\n    }\n  }\n\n  const senderPattern = /matthew\\.tooley@connectivitysource\\.net/i;\n  const isFromTarget = senderPattern.test(fullBody) || senderPattern.test(headerFrom) || senderPattern.test(fromField);\n  if (!isFromTarget) continue;\n\n  const strippedSubject = rawSubject.replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').trim();\n  if (!/social\\s*media\\s*tracker/i.test(strippedSubject)) continue;\n\n  const ticketMatch = strippedSubject.match(/\\b(CS\\d+)\\b/i);\n  const storeMatch = strippedSubject.match(/Social Media(?:\\s+Tracker)?\\s*[-·]\\s*([^(]+)\\s*\\(([^)]+)\\)/i);\n\n  const ticketId = ticketMatch ? ticketMatch[1].toUpperCase() : '';\n  const storeName = storeMatch ? storeMatch[1].trim() : '';\n  const storeCode = storeMatch ? storeMatch[2].trim() : '';\n\n  if (!ticketId) {\n    results.push({ json: { parse_error: true, error_reason: 'No ticket_id', raw_subject: rawSubject, message_id: messageId, current_month: currentMonth } });\n    continue;\n  }\n\n  results.push({\n    json: {\n      parse_error: false,\n      ticket_id: ticketId,\n      category: 'Social Media Tracker',\n      store_name: storeName,\n      store_code: storeCode,\n      full_subject: strippedSubject,\n      raw_subject: rawSubject,\n      message_id: messageId,\n      received_datetime: receivedDateTime,\n      processed_at: new Date().toISOString(),\n      date_key: new Date().toISOString().split('T')[0],\n      current_month: currentMonth\n    }\n  });\n}\n\nreturn results.length > 0 ? results : [{ json: { no_matching_emails: true, current_month: currentMonth } }];\n"
+      },
+      "id": "filter-parse",
+      "name": "Filter and Parse Tickets",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        128,
+        208
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "no-match-check",
+              "leftValue": "={{ $json.no_matching_emails }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "parse-error-check",
+              "leftValue": "={{ $json.parse_error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "valid-ticket",
+      "name": "Valid Ticket",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        352,
+        208
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.current_month }}"
+        },
+        "options": {}
+      },
+      "id": "get-existing",
+      "name": "Get Existing Tickets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        560,
+        192
+      ],
+      "typeVersion": 4.5,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tickets = $('Valid Ticket').all();\nconst existingRows = $('Get Existing Tickets').all();\nconst existingTicketIds = new Set();\nfor (const row of existingRows) {\n  const tid = row.json.ticket_id;\n  if (tid) existingTicketIds.add(String(tid).trim().toUpperCase());\n}\nconst results = [];\nfor (const ticket of tickets) {\n  const ticketId = ticket.json.ticket_id;\n  const isDuplicate = existingTicketIds.has(String(ticketId).trim().toUpperCase());\n  results.push({ json: { ...ticket.json, is_duplicate: isDuplicate } });\n}\nreturn results;\n"
+      },
+      "id": "check-dup",
+      "name": "Check Duplicate",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        784,
+        192
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "dup-check",
+              "leftValue": "={{ $json.is_duplicate }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-new",
+      "name": "Is New",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1008,
+        192
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.current_month }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "store-ticket",
+      "name": "Store Ticket",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1232,
+        160
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "skip-dup",
+      "name": "Skip Duplicate",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        1040,
+        496
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "no-match",
+      "name": "No Match",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        352,
+        384
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "morning-report",
+      "name": "Daily 0800 Report",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -256,
+        672
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 * * *"
+            }
+          ]
+        }
+      },
+      "id": "evening-report",
+      "name": "Daily 2100 Report",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -416,
+        832
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst currentMonth = monthNames[new Date().getMonth()];\nreturn [{ json: { current_month: currentMonth } }];"
+      },
+      "id": "get-month",
+      "name": "Get Current Month",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -16,
+        704
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.current_month }}"
+        },
+        "options": {}
+      },
+      "id": "get-all-tickets",
+      "name": "Get All Tickets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        192,
+        704
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nconst currentMonth = $('Get Current Month').first().json.current_month;\nconst now = new Date();\nconst today = now.toISOString().split('T')[0];\nconst dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\nconst monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst dayName = dayNames[now.getDay()];\nconst monthName = monthNames[now.getMonth()];\nconst dateFormatted = dayName + ', ' + monthName + ' ' + now.getDate() + ', ' + now.getFullYear();\nconst reportTime = now.getHours() < 12 ? 'Morning' : 'Evening';\nconst todayTickets = [];\nfor (const item of allItems) {\n  const ticket = item.json;\n  if (!ticket || !ticket.date_key) continue;\n  if (ticket.date_key === today) todayTickets.push(ticket);\n}\nconst storeGroups = {};\nfor (const ticket of todayTickets) {\n  const code = ticket.store_code || 'UNKNOWN';\n  const name = ticket.store_name || 'Unknown Store';\n  if (!storeGroups[code]) storeGroups[code] = { store_code: code, store_name: name, count: 0, tickets: [] };\n  storeGroups[code].count++;\n  storeGroups[code].tickets.push(ticket.ticket_id);\n}\nconst summary = Object.values(storeGroups).sort((a, b) => b.count - a.count);\nlet htmlTable = '<table style=\"border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; max-width: 600px;\"><thead><tr style=\"background-color: #1a73e8; color: white;\"><th style=\"padding: 12px; text-align: left; border: 1px solid #ddd;\">Store Name</th><th style=\"padding: 12px; text-align: left; border: 1px solid #ddd;\">SAP Code</th><th style=\"padding: 12px; text-align: center; border: 1px solid #ddd;\">Tickets</th></tr></thead><tbody>';\nlet totalTickets = 0;\nlet rowIndex = 0;\nfor (const store of summary) {\n  totalTickets += store.count;\n  const bgColor = rowIndex % 2 === 0 ? '#ffffff' : '#f8f9fa';\n  htmlTable += '<tr style=\"background-color: ' + bgColor + ';\"><td style=\"padding: 10px; border: 1px solid #ddd;\">' + store.store_name + '</td><td style=\"padding: 10px; border: 1px solid #ddd; font-family: monospace;\">' + store.store_code + '</td><td style=\"padding: 10px; text-align: center; border: 1px solid #ddd;\"><strong>' + store.count + '</strong></td></tr>';\n  rowIndex++;\n}\nhtmlTable += '<tr style=\"background-color: #e8f0fe; font-weight: bold;\"><td style=\"padding: 12px; border: 1px solid #ddd;\" colspan=\"2\">TOTAL</td><td style=\"padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 16px;\">' + totalTickets + '</td></tr></tbody></table>';\nconst noTicketsMsg = '<p style=\"color: #666; font-style: italic;\">No Social Media tickets recorded today.</p>';\nconst summaryBox = summary.length > 0 ? '<div style=\"margin-top: 20px; padding: 15px; background-color: #e8f0fe; border-radius: 8px;\"><strong>Summary:</strong> ' + totalTickets + ' ticket' + (totalTickets !== 1 ? 's' : '') + ' from ' + summary.length + ' store' + (summary.length !== 1 ? 's' : '') + ' today</div>' : '';\nconst emailHtml = '<div style=\"font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;\"><div style=\"background-color: #1a73e8; color: white; padding: 20px; border-radius: 8px 8px 0 0;\"><h2 style=\"margin: 0;\">Social Media Ticket Report</h2><p style=\"margin: 5px 0 0 0; opacity: 0.9;\">' + reportTime + ' Summary - ' + dateFormatted + '</p></div><div style=\"padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;\"><h3 style=\"color: #333; margin-top: 0;\">Todays Tickets by Store</h3>' + (summary.length > 0 ? htmlTable : noTicketsMsg) + summaryBox + '<hr style=\"margin-top: 30px; border: none; border-top: 1px solid #eee;\"><p style=\"color: #999; font-size: 11px; margin-bottom: 0;\">Automated report from n8n Social Media Ticket Monitor<br>Source: 352csautomation@gmail.com<br>Generated: ' + now.toLocaleString() + '</p></div></div>';\nreturn [{ json: { report_date: today, report_time: reportTime, date_formatted: dateFormatted, total_tickets: totalTickets, store_count: summary.length, summary: summary, email_subject: 'Social Media Tickets - ' + reportTime + ' Report - ' + today, email_html: emailHtml, current_month: currentMonth } }];"
+      },
+      "id": "gen-report",
+      "name": "Generate Daily Report",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        416,
+        704
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "sendTo": "352csautomation@gmail.com",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "send-report",
+      "name": "Send Report Email",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        624,
+        704
+      ],
+      "typeVersion": 2.1,
+      "webhookId": "9e371e3e-9c18-4468-b73c-420869723ac1",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KSh1B1hKCy6WlvTc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "is:unread from:matthew.tooley@connectivitysource.net subject:\"social media tracker\""
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -144,
+        320
+      ],
+      "id": "85a74a65-58b0-4d56-bf2a-b72766ff27fc",
+      "name": "Get many messages",
+      "webhookId": "cd0d7ff0-d449-4e05-9f45-6b6b98c9a90d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -416,
+        496
+      ],
+      "id": "46cf65e5-da0c-448e-a7c7-0014385c64e6",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Find PDF Attachment').first().json.message_id }}"
+      },
+      "id": "mark-read-traffic",
+      "name": "Mark as Read",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        1376,
+        1904
+      ],
+      "typeVersion": 2.1,
+      "webhookId": "1b6c3002-990b-4b44-b843-24ce1f266a7b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "1 0 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "monthly-trigger",
+      "name": "Monthly 1st Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -416,
+        1008
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst now = new Date();\nconst currentMonth = monthNames[now.getMonth()];\nconst currentYear = now.getFullYear();\n\nconst stores = [\n  'Stephenville',\n  'Chisholm Trail',\n  'Golden Triangle',\n  'Weatherford',\n  '28th St',\n  'Clifford',\n  'Rufe Snow',\n  'Granbury',\n  'Cleburne'\n];\n\nreturn [{\n  json: {\n    month_name: currentMonth,\n    month_year: currentMonth + ' ' + currentYear,\n    totals_sheet_name: currentMonth + ' Total',\n    stores: stores,\n    spreadsheet_id: '1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs'\n  }\n}];"
+      },
+      "id": "setup-month-info",
+      "name": "Setup Month Info",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -192,
+        1008
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheet_id }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"addSheet\": {\n        \"properties\": {\n          \"title\": \"{{ $json.month_name }}\"\n        }\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "create-month-sheet",
+      "name": "Create Month Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        32,
+        1008
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Setup Month Info').item.json.spreadsheet_id }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"addSheet\": {\n        \"properties\": {\n          \"title\": \"{{ $('Setup Month Info').item.json.totals_sheet_name }}\"\n        }\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "create-totals-sheet",
+      "name": "Create Totals Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        256,
+        1008
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Setup Month Info').item.json.month_name }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "ticket_id",
+            "category": "category",
+            "store_name": "store_name",
+            "store_code": "store_code",
+            "full_subject": "full_subject",
+            "raw_subject": "raw_subject",
+            "message_id": "message_id",
+            "received_datetime": "received_datetime",
+            "processed_at": "processed_at",
+            "date_key": "date_key"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "add-headers-month",
+      "name": "Add Headers to Month",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        480,
+        1008
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const monthInfo = $('Setup Month Info').first().json;\nconst monthName = monthInfo.month_name;\nconst stores = monthInfo.stores;\n\nconst rows = [\n  { store_name: 'Store Name', count: 'Count' }\n];\n\nfor (const store of stores) {\n  rows.push({\n    store_name: store,\n    count: `=COUNTIF('${monthName}'!D:D,A${rows.length + 1})`\n  });\n}\n\nrows.push({\n  store_name: 'TOTAL',\n  count: `=SUM(B2:B${rows.length})`\n});\n\nreturn rows.map(row => ({ json: row }));"
+      },
+      "id": "build-totals-rows",
+      "name": "Build Totals Rows",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        704,
+        1008
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Setup Month Info').item.json.totals_sheet_name }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "populate-totals",
+      "name": "Populate Totals Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        928,
+        1008
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "reset-trigger",
+      "name": "Reset January Data",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        -416,
+        1600
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "from:matthew.tooley@connectivitysource.net subject:\"social media tracker\" after:2026/01/01 before:2026/02/01"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -192,
+        1600
+      ],
+      "id": "fetch-all-jan-emails",
+      "name": "Fetch All January Emails",
+      "webhookId": "c0d41ada-525d-4885-81d0-1a23d66389d0",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst seenTickets = new Set();\n\nfor (const item of $input.all()) {\n  const email = item.json;\n  const rawSubject = email.subject || email.Subject || '';\n  const messageId = email.id || email.messageId || '';\n  const receivedDateTime = email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : (email.date || new Date().toISOString());\n\n  const strippedSubject = rawSubject.replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').trim();\n  \n  if (!/social\\s*media\\s*tracker/i.test(strippedSubject)) continue;\n\n  const ticketMatch = strippedSubject.match(/\\b(CS\\d+)\\b/i);\n  const storeMatch = strippedSubject.match(/Social Media(?:\\s+Tracker)?\\s*[-·]\\s*([^(]+)\\s*\\(([^)]+)\\)/i);\n\n  const ticketId = ticketMatch ? ticketMatch[1].toUpperCase() : '';\n  const storeName = storeMatch ? storeMatch[1].trim() : '';\n  const storeCode = storeMatch ? storeMatch[2].trim() : '';\n\n  if (!ticketId) continue;\n  \n  if (seenTickets.has(ticketId)) continue;\n  seenTickets.add(ticketId);\n\n  const dateObj = new Date(receivedDateTime);\n  const dateKey = dateObj.toISOString().split('T')[0];\n\n  results.push({\n    json: {\n      ticket_id: ticketId,\n      category: 'Social Media Tracker',\n      store_name: storeName,\n      store_code: storeCode,\n      full_subject: strippedSubject,\n      raw_subject: rawSubject,\n      message_id: messageId,\n      received_datetime: receivedDateTime,\n      processed_at: new Date().toISOString(),\n      date_key: dateKey\n    }\n  });\n}\n\nresults.sort((a, b) => new Date(a.json.received_datetime) - new Date(b.json.received_datetime));\n\nreturn results.length > 0 ? results : [{ json: { no_tickets_found: true, count: 0 } }];"
+      },
+      "id": "parse-dedupe-jan",
+      "name": "Parse and Deduplicate",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        32,
+        1600
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "has-tickets",
+              "leftValue": "={{ $json.no_tickets_found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-tickets-check",
+      "name": "Has Tickets?",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        256,
+        1600
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs/values/January:clear",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "clear-jan-sheet",
+      "name": "Clear January Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        480,
+        1568
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the parsed tickets from earlier in the flow\nconst tickets = $('Parse and Deduplicate').all();\nreturn tickets.filter(t => !t.json.no_tickets_found);"
+      },
+      "id": "get-parsed-tickets",
+      "name": "Get Parsed Tickets",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        704,
+        1568
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "January"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ticket_id": "={{ $json.ticket_id }}",
+            "category": "={{ $json.category }}",
+            "store_name": "={{ $json.store_name }}",
+            "store_code": "={{ $json.store_code }}",
+            "full_subject": "={{ $json.full_subject }}",
+            "raw_subject": "={{ $json.raw_subject }}",
+            "message_id": "={{ $json.message_id }}",
+            "received_datetime": "={{ $json.received_datetime }}",
+            "processed_at": "={{ $json.processed_at }}",
+            "date_key": "={{ $json.date_key }}"
+          },
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "repopulate-jan",
+      "name": "Repopulate January",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        928,
+        1568
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no-tickets-found",
+      "name": "No Tickets Found",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        480,
+        1696
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "subject:\"traffic summary\" has:attachment is:unread"
+        }
+      },
+      "id": "traffic-trigger",
+      "name": "Traffic Summary Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "position": [
+        -416,
+        1904
+      ],
+      "typeVersion": 1.1,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.id }}?format=full",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "id": "get-msg-details",
+      "name": "Get Message Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -192,
+        1904
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Find the PDF attachment\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const msg = item.json;\n  const messageId = msg.id;\n  const payload = msg.payload || {};\n  const parts = payload.parts || [];\n  \n  let pdfAttachment = null;\n  \n  function findPdf(parts) {\n    for (const part of parts) {\n      if (part.mimeType === 'application/pdf' && part.body?.attachmentId) {\n        pdfAttachment = {\n          filename: part.filename,\n          attachmentId: part.body.attachmentId,\n          size: part.body.size\n        };\n        return;\n      }\n      if (part.parts) findPdf(part.parts);\n    }\n  }\n  \n  findPdf(parts);\n  \n  const headers = payload.headers || [];\n  const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject');\n  const dateHeader = headers.find(h => h.name.toLowerCase() === 'date');\n  \n  if (pdfAttachment) {\n    results.push({\n      json: {\n        message_id: messageId,\n        subject: subjectHeader?.value || 'unknown',\n        email_date: dateHeader?.value || '',\n        pdf_filename: pdfAttachment.filename,\n        pdf_attachment_id: pdfAttachment.attachmentId,\n        pdf_size: pdfAttachment.size\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "find-pdf-attach",
+      "name": "Find PDF Attachment",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        32,
+        1904
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.message_id }}/attachments/{{ $json.pdf_attachment_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "id": "download-pdf-attach",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        256,
+        1904
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FZmzWiKVrIPqh6Ku",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert Gmail's URL-safe base64 to binary\nconst items = $input.all();\nconst pdfInfo = $('Find PDF Attachment').first().json;\n\nfor (const item of items) {\n  let base64Data = item.json.data || '';\n  \n  // Gmail uses URL-safe base64 - convert to standard\n  base64Data = base64Data.replace(/-/g, '+').replace(/_/g, '/');\n  \n  // Add padding if needed\n  while (base64Data.length % 4) {\n    base64Data += '=';\n  }\n  \n  return [{\n    json: {\n      message_id: pdfInfo.message_id,\n      subject: pdfInfo.subject,\n      email_date: pdfInfo.email_date,\n      pdf_filename: pdfInfo.pdf_filename\n    },\n    binary: {\n      data: {\n        data: base64Data,\n        mimeType: 'application/pdf',\n        fileName: pdfInfo.pdf_filename || 'traffic.pdf',\n        fileExtension: 'pdf'\n      }\n    }\n  }];\n}"
+      },
+      "id": "prep-pdf-binary",
+      "name": "Prepare PDF Binary",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        480,
+        1904
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "extract-text",
+      "name": "Extract PDF Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        704,
+        1904
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Traffic Log"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "store"
+          ],
+          "schema": [
+            {
+              "id": "store",
+              "displayName": "store",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "exitTraffic",
+              "displayName": "exitTraffic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dataDate",
+              "displayName": "dataDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "save-traffic-log",
+      "name": "Save Traffic Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1264,
+        1904
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "hQB6VLVhr3n8B3Hs",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdf.co/v1/file/upload",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "inline",
+              "value": "true"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "352tooley@gmail.com_c9V8ZajYVLjzLGWfZD7ti6BLG6ZGfFYOygod3XdyL8O2BSTK6HJwUcwdIYzjtoHX"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/pdf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{$binary.data}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        544,
+        2176
+      ],
+      "id": "b4d58539-637c-4f2e-b744-cc568dea835b",
+      "name": "HTTP Request",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const text =\n  items[0].json.text ||\n  items[0].json.text_preview ||\n  \"\";\n\nconst lines = text.split(/\\r?\\n/);\nconst results = [];\n\n// Extract the \"through\" date from PDF content\n// Look for patterns like \"Through January 12, 2026\" or \"thru 01/12/2026\" etc.\nlet dataDate = \"\";\nconst throughMatch = text.match(/(?:through|thru)\\s+([A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4}|\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})/i);\nif (throughMatch) {\n  dataDate = throughMatch[1].trim();\n} else {\n  // Fallback: look for any date pattern in first few lines\n  const dateMatch = text.match(/\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}|[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})\\b/);\n  if (dateMatch) {\n    dataDate = dateMatch[1].trim();\n  }\n}\n\nfor (const line of lines) {\n  // Only real store rows\n  if (!/^[0-9A-Z]+:/.test(line.trim())) continue;\n\n  // Example:\n  // 6ESH: Chisholm Trail 7.81% 50.00 640.00 19.00 15.00 11.00\n\n  const parts = line.trim().split(/\\s+/);\n\n  // Drop store code (e.g. \"6ESH:\")\n  parts.shift();\n\n  // Pop values from right\n  parts.pop(); // accessory\n  parts.pop(); // upgrade\n  parts.pop(); // add-a-line\n  const exitTraffic = parts.pop(); // ← keep this\n  parts.pop(); // interactions\n  parts.pop(); // conversion\n\n  const storeName = parts.join(\" \");\n\n  results.push({\n    json: {\n      store: storeName,\n      exitTraffic: exitTraffic.replace(/,/g, \"\"),\n      dataDate: dataDate\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        1904
+      ],
+      "id": "de3ba3ea-6aa6-4443-b127-6d68ead5e01b",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        []
+      ]
+    },
+    "Filter and Parse Tickets": {
+      "main": [
+        [
+          {
+            "node": "Valid Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Ticket": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Tickets": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Is New",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New": {
+      "main": [
+        [
+          {
+            "node": "Store Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 0800 Report": {
+      "main": [
+        [
+          {
+            "node": "Get Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 2100 Report": {
+      "main": [
+        [
+          {
+            "node": "Get Current Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Month": {
+      "main": [
+        [
+          {
+            "node": "Get All Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Tickets": {
+      "main": [
+        [
+          {
+            "node": "Generate Daily Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Daily Report": {
+      "main": [
+        [
+          {
+            "node": "Send Report Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Filter and Parse Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Ticket": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monthly 1st Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup Month Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Month Info": {
+      "main": [
+        [
+          {
+            "node": "Create Month Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Month Sheet": {
+      "main": [
+        [
+          {
+            "node": "Create Totals Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Totals Sheet": {
+      "main": [
+        [
+          {
+            "node": "Add Headers to Month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Headers to Month": {
+      "main": [
+        [
+          {
+            "node": "Build Totals Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Totals Rows": {
+      "main": [
+        [
+          {
+            "node": "Populate Totals Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset January Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch All January Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All January Emails": {
+      "main": [
+        [
+          {
+            "node": "Parse and Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Has Tickets?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Tickets?": {
+      "main": [
+        [
+          {
+            "node": "Clear January Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Tickets Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear January Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Parsed Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Parsed Tickets": {
+      "main": [
+        [
+          {
+            "node": "Repopulate January",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traffic Summary Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Message Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Message Details": {
+      "main": [
+        [
+          {
+            "node": "Find PDF Attachment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find PDF Attachment": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Prepare PDF Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare PDF Binary": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF Text",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Traffic Data": {
+      "main": [
+        [
+          {
+            "node": "Mark as Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Save Traffic Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed"
+  },
+  "staticData": {
+    "node:Daily 0800 Report": {
+      "recurrenceRules": []
+    },
+    "node:Daily 2100 Report": {
+      "recurrenceRules": []
+    },
+    "node:Gmail Trigger": {
+      "Gmail Trigger": {
+        "lastTimeChecked": 1768382878,
+        "possibleDuplicates": [
+          "19bbbd5551c083cc"
+        ]
+      }
+    },
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    },
+    "node:Monthly 1st Trigger": {
+      "recurrenceRules": []
+    },
+    "node:Traffic Email Trigger": {
+      "Traffic Email Trigger": {
+        "lastTimeChecked": 1767964227,
+        "possibleDuplicates": [
+          "19ba2e144b4e6f49"
+        ]
+      }
+    },
+    "node:Traffic Summary Trigger": {
+      "Traffic Summary Trigger": {
+        "lastTimeChecked": 1768393430,
+        "possibleDuplicates": [
+          "19bbc76674970447"
+        ]
+      }
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "6b504eda-78f5-46a3-82d4-461ffc7e2c9b",
+  "activeVersionId": "6b504eda-78f5-46a3-82d4-461ffc7e2c9b",
+  "versionCounter": 788,
+  "triggerCount": 6,
+  "shared": [
+    {
+      "updatedAt": "2026-01-09T07:37:04.215Z",
+      "createdAt": "2026-01-09T07:37:04.215Z",
+      "role": "workflow:owner",
+      "workflowId": "7dXYNzO7bCJjaCGa",
+      "projectId": "4he6ENoRAJceyMWR",
+      "project": {
+        "updatedAt": "2025-12-29T07:00:17.928Z",
+        "createdAt": "2025-12-29T06:41:54.357Z",
+        "id": "4he6ENoRAJceyMWR",
+        "name": "Matt Tooley <352tooley@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "63ca4f80-9cf5-48e3-ad4c-8a590c95b3d0",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-12-29T06:41:54.358Z",
+            "createdAt": "2025-12-29T06:41:54.358Z",
+            "userId": "63ca4f80-9cf5-48e3-ad4c-8a590c95b3d0",
+            "projectId": "4he6ENoRAJceyMWR",
+            "user": {
+              "updatedAt": "2026-01-14T11:58:57.000Z",
+              "createdAt": "2025-12-29T06:41:54.023Z",
+              "id": "63ca4f80-9cf5-48e3-ad4c-8a590c95b3d0",
+              "email": "352tooley@gmail.com",
+              "firstName": "Matt",
+              "lastName": "Tooley",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-29T07:00:34.268Z",
+                "personalization_survey_n8n_version": "2.1.4"
+              },
+              "settings": {
+                "userActivated": true,
+                "firstSuccessfulWorkflowId": "7dXYNzO7bCJjaCGa",
+                "userActivatedAt": 1767946552403
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-01-14",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-01-14T12:43:06.731Z",
+    "createdAt": "2026-01-14T12:43:06.731Z",
+    "versionId": "6b504eda-78f5-46a3-82d4-461ffc7e2c9b",
+    "workflowId": "7dXYNzO7bCJjaCGa",
+    "nodes": [
+      {
+        "parameters": {
+          "pollTimes": {
+            "item": [
+              {
+                "mode": "everyMinute"
+              }
+            ]
+          },
+          "filters": {
+            "readStatus": "unread"
+          }
+        },
+        "id": "gmail-trigger",
+        "name": "Gmail Trigger",
+        "type": "n8n-nodes-base.gmailTrigger",
+        "position": [
+          -416,
+          160
+        ],
+        "typeVersion": 1.1,
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const results = [];\nconst monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst currentMonth = monthNames[new Date().getMonth()];\n\nfor (const item of $input.all()) {\n  const email = item.json;\n  const rawSubject = email.subject || email.Subject || '';\n  const fromField = email.from || email.From || '';\n  const messageId = email.id || email.messageId || '';\n  const receivedDateTime = email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : new Date().toISOString();\n\n  const emailBody = email.text || email.snippet || '';\n  const emailBodyHtml = email.html || '';\n  const fullBody = emailBody + ' ' + emailBodyHtml;\n  const headers = email.payload?.headers || email.headers || [];\n  let headerFrom = '';\n  for (const h of headers) {\n    if (h.name?.toLowerCase() === 'from' || h.name?.toLowerCase() === 'x-original-from') {\n      headerFrom += ' ' + (h.value || '');\n    }\n  }\n\n  const senderPattern = /matthew\\.tooley@connectivitysource\\.net/i;\n  const isFromTarget = senderPattern.test(fullBody) || senderPattern.test(headerFrom) || senderPattern.test(fromField);\n  if (!isFromTarget) continue;\n\n  const strippedSubject = rawSubject.replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').trim();\n  if (!/social\\s*media\\s*tracker/i.test(strippedSubject)) continue;\n\n  const ticketMatch = strippedSubject.match(/\\b(CS\\d+)\\b/i);\n  const storeMatch = strippedSubject.match(/Social Media(?:\\s+Tracker)?\\s*[-·]\\s*([^(]+)\\s*\\(([^)]+)\\)/i);\n\n  const ticketId = ticketMatch ? ticketMatch[1].toUpperCase() : '';\n  const storeName = storeMatch ? storeMatch[1].trim() : '';\n  const storeCode = storeMatch ? storeMatch[2].trim() : '';\n\n  if (!ticketId) {\n    results.push({ json: { parse_error: true, error_reason: 'No ticket_id', raw_subject: rawSubject, message_id: messageId, current_month: currentMonth } });\n    continue;\n  }\n\n  results.push({\n    json: {\n      parse_error: false,\n      ticket_id: ticketId,\n      category: 'Social Media Tracker',\n      store_name: storeName,\n      store_code: storeCode,\n      full_subject: strippedSubject,\n      raw_subject: rawSubject,\n      message_id: messageId,\n      received_datetime: receivedDateTime,\n      processed_at: new Date().toISOString(),\n      date_key: new Date().toISOString().split('T')[0],\n      current_month: currentMonth\n    }\n  });\n}\n\nreturn results.length > 0 ? results : [{ json: { no_matching_emails: true, current_month: currentMonth } }];\n"
+        },
+        "id": "filter-parse",
+        "name": "Filter and Parse Tickets",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          128,
+          208
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "no-match-check",
+                "leftValue": "={{ $json.no_matching_emails }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "notEquals"
+                }
+              },
+              {
+                "id": "parse-error-check",
+                "leftValue": "={{ $json.parse_error }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "valid-ticket",
+        "name": "Valid Ticket",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          352,
+          208
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "={{ $json.current_month }}"
+          },
+          "options": {}
+        },
+        "id": "get-existing",
+        "name": "Get Existing Tickets",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          560,
+          192
+        ],
+        "typeVersion": 4.5,
+        "alwaysOutputData": true,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const tickets = $('Valid Ticket').all();\nconst existingRows = $('Get Existing Tickets').all();\nconst existingTicketIds = new Set();\nfor (const row of existingRows) {\n  const tid = row.json.ticket_id;\n  if (tid) existingTicketIds.add(String(tid).trim().toUpperCase());\n}\nconst results = [];\nfor (const ticket of tickets) {\n  const ticketId = ticket.json.ticket_id;\n  const isDuplicate = existingTicketIds.has(String(ticketId).trim().toUpperCase());\n  results.push({ json: { ...ticket.json, is_duplicate: isDuplicate } });\n}\nreturn results;\n"
+        },
+        "id": "check-dup",
+        "name": "Check Duplicate",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          784,
+          192
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "dup-check",
+                "leftValue": "={{ $json.is_duplicate }}",
+                "rightValue": false,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "is-new",
+        "name": "Is New",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          1008,
+          192
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "={{ $json.current_month }}"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {}
+          },
+          "options": {}
+        },
+        "id": "store-ticket",
+        "name": "Store Ticket",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          1232,
+          160
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "skip-dup",
+        "name": "Skip Duplicate",
+        "type": "n8n-nodes-base.noOp",
+        "position": [
+          1040,
+          496
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {},
+        "id": "no-match",
+        "name": "No Match",
+        "type": "n8n-nodes-base.noOp",
+        "position": [
+          352,
+          384
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 8 * * *"
+              }
+            ]
+          }
+        },
+        "id": "morning-report",
+        "name": "Daily 0800 Report",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "position": [
+          -256,
+          672
+        ],
+        "typeVersion": 1.2
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 21 * * *"
+              }
+            ]
+          }
+        },
+        "id": "evening-report",
+        "name": "Daily 2100 Report",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "position": [
+          -416,
+          832
+        ],
+        "typeVersion": 1.2
+      },
+      {
+        "parameters": {
+          "jsCode": "const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst currentMonth = monthNames[new Date().getMonth()];\nreturn [{ json: { current_month: currentMonth } }];"
+        },
+        "id": "get-month",
+        "name": "Get Current Month",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          -16,
+          704
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "={{ $json.current_month }}"
+          },
+          "options": {}
+        },
+        "id": "get-all-tickets",
+        "name": "Get All Tickets",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          192,
+          704
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const allItems = $input.all();\nconst currentMonth = $('Get Current Month').first().json.current_month;\nconst now = new Date();\nconst today = now.toISOString().split('T')[0];\nconst dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\nconst monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst dayName = dayNames[now.getDay()];\nconst monthName = monthNames[now.getMonth()];\nconst dateFormatted = dayName + ', ' + monthName + ' ' + now.getDate() + ', ' + now.getFullYear();\nconst reportTime = now.getHours() < 12 ? 'Morning' : 'Evening';\nconst todayTickets = [];\nfor (const item of allItems) {\n  const ticket = item.json;\n  if (!ticket || !ticket.date_key) continue;\n  if (ticket.date_key === today) todayTickets.push(ticket);\n}\nconst storeGroups = {};\nfor (const ticket of todayTickets) {\n  const code = ticket.store_code || 'UNKNOWN';\n  const name = ticket.store_name || 'Unknown Store';\n  if (!storeGroups[code]) storeGroups[code] = { store_code: code, store_name: name, count: 0, tickets: [] };\n  storeGroups[code].count++;\n  storeGroups[code].tickets.push(ticket.ticket_id);\n}\nconst summary = Object.values(storeGroups).sort((a, b) => b.count - a.count);\nlet htmlTable = '<table style=\"border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; max-width: 600px;\"><thead><tr style=\"background-color: #1a73e8; color: white;\"><th style=\"padding: 12px; text-align: left; border: 1px solid #ddd;\">Store Name</th><th style=\"padding: 12px; text-align: left; border: 1px solid #ddd;\">SAP Code</th><th style=\"padding: 12px; text-align: center; border: 1px solid #ddd;\">Tickets</th></tr></thead><tbody>';\nlet totalTickets = 0;\nlet rowIndex = 0;\nfor (const store of summary) {\n  totalTickets += store.count;\n  const bgColor = rowIndex % 2 === 0 ? '#ffffff' : '#f8f9fa';\n  htmlTable += '<tr style=\"background-color: ' + bgColor + ';\"><td style=\"padding: 10px; border: 1px solid #ddd;\">' + store.store_name + '</td><td style=\"padding: 10px; border: 1px solid #ddd; font-family: monospace;\">' + store.store_code + '</td><td style=\"padding: 10px; text-align: center; border: 1px solid #ddd;\"><strong>' + store.count + '</strong></td></tr>';\n  rowIndex++;\n}\nhtmlTable += '<tr style=\"background-color: #e8f0fe; font-weight: bold;\"><td style=\"padding: 12px; border: 1px solid #ddd;\" colspan=\"2\">TOTAL</td><td style=\"padding: 12px; text-align: center; border: 1px solid #ddd; font-size: 16px;\">' + totalTickets + '</td></tr></tbody></table>';\nconst noTicketsMsg = '<p style=\"color: #666; font-style: italic;\">No Social Media tickets recorded today.</p>';\nconst summaryBox = summary.length > 0 ? '<div style=\"margin-top: 20px; padding: 15px; background-color: #e8f0fe; border-radius: 8px;\"><strong>Summary:</strong> ' + totalTickets + ' ticket' + (totalTickets !== 1 ? 's' : '') + ' from ' + summary.length + ' store' + (summary.length !== 1 ? 's' : '') + ' today</div>' : '';\nconst emailHtml = '<div style=\"font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;\"><div style=\"background-color: #1a73e8; color: white; padding: 20px; border-radius: 8px 8px 0 0;\"><h2 style=\"margin: 0;\">Social Media Ticket Report</h2><p style=\"margin: 5px 0 0 0; opacity: 0.9;\">' + reportTime + ' Summary - ' + dateFormatted + '</p></div><div style=\"padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;\"><h3 style=\"color: #333; margin-top: 0;\">Todays Tickets by Store</h3>' + (summary.length > 0 ? htmlTable : noTicketsMsg) + summaryBox + '<hr style=\"margin-top: 30px; border: none; border-top: 1px solid #eee;\"><p style=\"color: #999; font-size: 11px; margin-bottom: 0;\">Automated report from n8n Social Media Ticket Monitor<br>Source: 352csautomation@gmail.com<br>Generated: ' + now.toLocaleString() + '</p></div></div>';\nreturn [{ json: { report_date: today, report_time: reportTime, date_formatted: dateFormatted, total_tickets: totalTickets, store_count: summary.length, summary: summary, email_subject: 'Social Media Tickets - ' + reportTime + ' Report - ' + today, email_html: emailHtml, current_month: currentMonth } }];"
+        },
+        "id": "gen-report",
+        "name": "Generate Daily Report",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          416,
+          704
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "sendTo": "352csautomation@gmail.com",
+          "subject": "={{ $json.email_subject }}",
+          "message": "={{ $json.email_html }}",
+          "options": {}
+        },
+        "id": "send-report",
+        "name": "Send Report Email",
+        "type": "n8n-nodes-base.gmail",
+        "position": [
+          624,
+          704
+        ],
+        "typeVersion": 2.1,
+        "webhookId": "9e371e3e-9c18-4468-b73c-420869723ac1",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "KSh1B1hKCy6WlvTc",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "returnAll": true,
+          "filters": {
+            "q": "is:unread from:matthew.tooley@connectivitysource.net subject:\"social media tracker\""
+          }
+        },
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          -144,
+          320
+        ],
+        "id": "85a74a65-58b0-4d56-bf2a-b72766ff27fc",
+        "name": "Get many messages",
+        "webhookId": "cd0d7ff0-d449-4e05-9f45-6b6b98c9a90d",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.3,
+        "position": [
+          -416,
+          496
+        ],
+        "id": "46cf65e5-da0c-448e-a7c7-0014385c64e6",
+        "name": "Schedule Trigger"
+      },
+      {
+        "parameters": {
+          "operation": "markAsRead",
+          "messageId": "={{ $('Find PDF Attachment').first().json.message_id }}"
+        },
+        "id": "mark-read-traffic",
+        "name": "Mark as Read",
+        "type": "n8n-nodes-base.gmail",
+        "position": [
+          1376,
+          1904
+        ],
+        "typeVersion": 2.1,
+        "webhookId": "1b6c3002-990b-4b44-b843-24ce1f266a7b",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "1 0 1 * *"
+              }
+            ]
+          }
+        },
+        "id": "monthly-trigger",
+        "name": "Monthly 1st Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "position": [
+          -416,
+          1008
+        ],
+        "typeVersion": 1.2
+      },
+      {
+        "parameters": {
+          "jsCode": "const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst now = new Date();\nconst currentMonth = monthNames[now.getMonth()];\nconst currentYear = now.getFullYear();\n\nconst stores = [\n  'Stephenville',\n  'Chisholm Trail',\n  'Golden Triangle',\n  'Weatherford',\n  '28th St',\n  'Clifford',\n  'Rufe Snow',\n  'Granbury',\n  'Cleburne'\n];\n\nreturn [{\n  json: {\n    month_name: currentMonth,\n    month_year: currentMonth + ' ' + currentYear,\n    totals_sheet_name: currentMonth + ' Total',\n    stores: stores,\n    spreadsheet_id: '1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs'\n  }\n}];"
+        },
+        "id": "setup-month-info",
+        "name": "Setup Month Info",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          -192,
+          1008
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheet_id }}:batchUpdate",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleSheetsOAuth2Api",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"requests\": [\n    {\n      \"addSheet\": {\n        \"properties\": {\n          \"title\": \"{{ $json.month_name }}\"\n        }\n      }\n    }\n  ]\n}",
+          "options": {}
+        },
+        "id": "create-month-sheet",
+        "name": "Create Month Sheet",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          32,
+          1008
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Setup Month Info').item.json.spreadsheet_id }}:batchUpdate",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleSheetsOAuth2Api",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"requests\": [\n    {\n      \"addSheet\": {\n        \"properties\": {\n          \"title\": \"{{ $('Setup Month Info').item.json.totals_sheet_name }}\"\n        }\n      }\n    }\n  ]\n}",
+          "options": {}
+        },
+        "id": "create-totals-sheet",
+        "name": "Create Totals Sheet",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          256,
+          1008
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "={{ $('Setup Month Info').item.json.month_name }}"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "ticket_id": "ticket_id",
+              "category": "category",
+              "store_name": "store_name",
+              "store_code": "store_code",
+              "full_subject": "full_subject",
+              "raw_subject": "raw_subject",
+              "message_id": "message_id",
+              "received_datetime": "received_datetime",
+              "processed_at": "processed_at",
+              "date_key": "date_key"
+            },
+            "matchingColumns": []
+          },
+          "options": {}
+        },
+        "id": "add-headers-month",
+        "name": "Add Headers to Month",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          480,
+          1008
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const monthInfo = $('Setup Month Info').first().json;\nconst monthName = monthInfo.month_name;\nconst stores = monthInfo.stores;\n\nconst rows = [\n  { store_name: 'Store Name', count: 'Count' }\n];\n\nfor (const store of stores) {\n  rows.push({\n    store_name: store,\n    count: `=COUNTIF('${monthName}'!D:D,A${rows.length + 1})`\n  });\n}\n\nrows.push({\n  store_name: 'TOTAL',\n  count: `=SUM(B2:B${rows.length})`\n});\n\nreturn rows.map(row => ({ json: row }));"
+        },
+        "id": "build-totals-rows",
+        "name": "Build Totals Rows",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          704,
+          1008
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "={{ $('Setup Month Info').item.json.totals_sheet_name }}"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {}
+          },
+          "options": {}
+        },
+        "id": "populate-totals",
+        "name": "Populate Totals Sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          928,
+          1008
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "reset-trigger",
+        "name": "Reset January Data",
+        "type": "n8n-nodes-base.manualTrigger",
+        "position": [
+          -416,
+          1600
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "operation": "getAll",
+          "returnAll": true,
+          "filters": {
+            "q": "from:matthew.tooley@connectivitysource.net subject:\"social media tracker\" after:2026/01/01 before:2026/02/01"
+          }
+        },
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          -192,
+          1600
+        ],
+        "id": "fetch-all-jan-emails",
+        "name": "Fetch All January Emails",
+        "webhookId": "c0d41ada-525d-4885-81d0-1a23d66389d0",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const results = [];\nconst seenTickets = new Set();\n\nfor (const item of $input.all()) {\n  const email = item.json;\n  const rawSubject = email.subject || email.Subject || '';\n  const messageId = email.id || email.messageId || '';\n  const receivedDateTime = email.internalDate ? new Date(parseInt(email.internalDate)).toISOString() : (email.date || new Date().toISOString());\n\n  const strippedSubject = rawSubject.replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').replace(/^\\s*(fw|fwd|re)\\s*:\\s*/gi, '').trim();\n  \n  if (!/social\\s*media\\s*tracker/i.test(strippedSubject)) continue;\n\n  const ticketMatch = strippedSubject.match(/\\b(CS\\d+)\\b/i);\n  const storeMatch = strippedSubject.match(/Social Media(?:\\s+Tracker)?\\s*[-·]\\s*([^(]+)\\s*\\(([^)]+)\\)/i);\n\n  const ticketId = ticketMatch ? ticketMatch[1].toUpperCase() : '';\n  const storeName = storeMatch ? storeMatch[1].trim() : '';\n  const storeCode = storeMatch ? storeMatch[2].trim() : '';\n\n  if (!ticketId) continue;\n  \n  if (seenTickets.has(ticketId)) continue;\n  seenTickets.add(ticketId);\n\n  const dateObj = new Date(receivedDateTime);\n  const dateKey = dateObj.toISOString().split('T')[0];\n\n  results.push({\n    json: {\n      ticket_id: ticketId,\n      category: 'Social Media Tracker',\n      store_name: storeName,\n      store_code: storeCode,\n      full_subject: strippedSubject,\n      raw_subject: rawSubject,\n      message_id: messageId,\n      received_datetime: receivedDateTime,\n      processed_at: new Date().toISOString(),\n      date_key: dateKey\n    }\n  });\n}\n\nresults.sort((a, b) => new Date(a.json.received_datetime) - new Date(b.json.received_datetime));\n\nreturn results.length > 0 ? results : [{ json: { no_tickets_found: true, count: 0 } }];"
+        },
+        "id": "parse-dedupe-jan",
+        "name": "Parse and Deduplicate",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          32,
+          1600
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "has-tickets",
+                "leftValue": "={{ $json.no_tickets_found }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "notEquals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "has-tickets-check",
+        "name": "Has Tickets?",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          256,
+          1600
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://sheets.googleapis.com/v4/spreadsheets/1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs/values/January:clear",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleSheetsOAuth2Api",
+          "options": {}
+        },
+        "id": "clear-jan-sheet",
+        "name": "Clear January Sheet",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          480,
+          1568
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Get the parsed tickets from earlier in the flow\nconst tickets = $('Parse and Deduplicate').all();\nreturn tickets.filter(t => !t.json.no_tickets_found);"
+        },
+        "id": "get-parsed-tickets",
+        "name": "Get Parsed Tickets",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          704,
+          1568
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "January"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "ticket_id": "={{ $json.ticket_id }}",
+              "category": "={{ $json.category }}",
+              "store_name": "={{ $json.store_name }}",
+              "store_code": "={{ $json.store_code }}",
+              "full_subject": "={{ $json.full_subject }}",
+              "raw_subject": "={{ $json.raw_subject }}",
+              "message_id": "={{ $json.message_id }}",
+              "received_datetime": "={{ $json.received_datetime }}",
+              "processed_at": "={{ $json.processed_at }}",
+              "date_key": "={{ $json.date_key }}"
+            },
+            "matchingColumns": []
+          },
+          "options": {}
+        },
+        "id": "repopulate-jan",
+        "name": "Repopulate January",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          928,
+          1568
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "id": "no-tickets-found",
+        "name": "No Tickets Found",
+        "type": "n8n-nodes-base.noOp",
+        "position": [
+          480,
+          1696
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "pollTimes": {
+            "item": [
+              {
+                "mode": "everyMinute"
+              }
+            ]
+          },
+          "filters": {
+            "q": "subject:\"traffic summary\" has:attachment is:unread"
+          }
+        },
+        "id": "traffic-trigger",
+        "name": "Traffic Summary Trigger",
+        "type": "n8n-nodes-base.gmailTrigger",
+        "position": [
+          -416,
+          1904
+        ],
+        "typeVersion": 1.1,
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.id }}?format=full",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "gmailOAuth2",
+          "options": {}
+        },
+        "id": "get-msg-details",
+        "name": "Get Message Details",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          -192,
+          1904
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Find the PDF attachment\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const msg = item.json;\n  const messageId = msg.id;\n  const payload = msg.payload || {};\n  const parts = payload.parts || [];\n  \n  let pdfAttachment = null;\n  \n  function findPdf(parts) {\n    for (const part of parts) {\n      if (part.mimeType === 'application/pdf' && part.body?.attachmentId) {\n        pdfAttachment = {\n          filename: part.filename,\n          attachmentId: part.body.attachmentId,\n          size: part.body.size\n        };\n        return;\n      }\n      if (part.parts) findPdf(part.parts);\n    }\n  }\n  \n  findPdf(parts);\n  \n  const headers = payload.headers || [];\n  const subjectHeader = headers.find(h => h.name.toLowerCase() === 'subject');\n  const dateHeader = headers.find(h => h.name.toLowerCase() === 'date');\n  \n  if (pdfAttachment) {\n    results.push({\n      json: {\n        message_id: messageId,\n        subject: subjectHeader?.value || 'unknown',\n        email_date: dateHeader?.value || '',\n        pdf_filename: pdfAttachment.filename,\n        pdf_attachment_id: pdfAttachment.attachmentId,\n        pdf_size: pdfAttachment.size\n      }\n    });\n  }\n}\n\nreturn results;"
+        },
+        "id": "find-pdf-attach",
+        "name": "Find PDF Attachment",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          32,
+          1904
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.message_id }}/attachments/{{ $json.pdf_attachment_id }}",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "gmailOAuth2",
+          "options": {}
+        },
+        "id": "download-pdf-attach",
+        "name": "Download PDF",
+        "type": "n8n-nodes-base.httpRequest",
+        "position": [
+          256,
+          1904
+        ],
+        "typeVersion": 4.2,
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "FZmzWiKVrIPqh6Ku",
+            "name": "Gmail account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Convert Gmail's URL-safe base64 to binary\nconst items = $input.all();\nconst pdfInfo = $('Find PDF Attachment').first().json;\n\nfor (const item of items) {\n  let base64Data = item.json.data || '';\n  \n  // Gmail uses URL-safe base64 - convert to standard\n  base64Data = base64Data.replace(/-/g, '+').replace(/_/g, '/');\n  \n  // Add padding if needed\n  while (base64Data.length % 4) {\n    base64Data += '=';\n  }\n  \n  return [{\n    json: {\n      message_id: pdfInfo.message_id,\n      subject: pdfInfo.subject,\n      email_date: pdfInfo.email_date,\n      pdf_filename: pdfInfo.pdf_filename\n    },\n    binary: {\n      data: {\n        data: base64Data,\n        mimeType: 'application/pdf',\n        fileName: pdfInfo.pdf_filename || 'traffic.pdf',\n        fileExtension: 'pdf'\n      }\n    }\n  }];\n}"
+        },
+        "id": "prep-pdf-binary",
+        "name": "Prepare PDF Binary",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          480,
+          1904
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "operation": "pdf",
+          "options": {}
+        },
+        "id": "extract-text",
+        "name": "Extract PDF Text",
+        "type": "n8n-nodes-base.extractFromFile",
+        "position": [
+          704,
+          1904
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1c9v-C7E6A2s7lIrnI3o_LShLmjr3tEb48k9c-xDtoZs"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "name",
+            "value": "Traffic Log"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {},
+            "matchingColumns": [
+              "store"
+            ],
+            "schema": [
+              {
+                "id": "store",
+                "displayName": "store",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "exitTraffic",
+                "displayName": "exitTraffic",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "dataDate",
+                "displayName": "dataDate",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "cellFormat": "USER_ENTERED"
+          }
+        },
+        "id": "save-traffic-log",
+        "name": "Save Traffic Data",
+        "type": "n8n-nodes-base.googleSheets",
+        "position": [
+          1264,
+          1904
+        ],
+        "typeVersion": 4.5,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "hQB6VLVhr3n8B3Hs",
+            "name": "Google Sheets account 2"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.pdf.co/v1/file/upload",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "inline",
+                "value": "true"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "x-api-key",
+                "value": "352tooley@gmail.com_c9V8ZajYVLjzLGWfZD7ti6BLG6ZGfFYOygod3XdyL8O2BSTK6HJwUcwdIYzjtoHX"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/pdf"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "raw",
+          "body": "={{$binary.data}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          544,
+          2176
+        ],
+        "id": "b4d58539-637c-4f2e-b744-cc568dea835b",
+        "name": "HTTP Request",
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "jsCode": "const text =\n  items[0].json.text ||\n  items[0].json.text_preview ||\n  \"\";\n\nconst lines = text.split(/\\r?\\n/);\nconst results = [];\n\n// Extract the \"through\" date from PDF content\n// Look for patterns like \"Through January 12, 2026\" or \"thru 01/12/2026\" etc.\nlet dataDate = \"\";\nconst throughMatch = text.match(/(?:through|thru)\\s+([A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4}|\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})/i);\nif (throughMatch) {\n  dataDate = throughMatch[1].trim();\n} else {\n  // Fallback: look for any date pattern in first few lines\n  const dateMatch = text.match(/\\b(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}|[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})\\b/);\n  if (dateMatch) {\n    dataDate = dateMatch[1].trim();\n  }\n}\n\nfor (const line of lines) {\n  // Only real store rows\n  if (!/^[0-9A-Z]+:/.test(line.trim())) continue;\n\n  // Example:\n  // 6ESH: Chisholm Trail 7.81% 50.00 640.00 19.00 15.00 11.00\n\n  const parts = line.trim().split(/\\s+/);\n\n  // Drop store code (e.g. \"6ESH:\")\n  parts.shift();\n\n  // Pop values from right\n  parts.pop(); // accessory\n  parts.pop(); // upgrade\n  parts.pop(); // add-a-line\n  const exitTraffic = parts.pop(); // ← keep this\n  parts.pop(); // interactions\n  parts.pop(); // conversion\n\n  const storeName = parts.join(\" \");\n\n  results.push({\n    json: {\n      store: storeName,\n      exitTraffic: exitTraffic.replace(/,/g, \"\"),\n      dataDate: dataDate\n    }\n  });\n}\n\nreturn results;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          944,
+          1904
+        ],
+        "id": "de3ba3ea-6aa6-4443-b127-6d68ead5e01b",
+        "name": "Code in JavaScript"
+      }
+    ],
+    "connections": {
+      "Gmail Trigger": {
+        "main": [
+          []
+        ]
+      },
+      "Filter and Parse Tickets": {
+        "main": [
+          [
+            {
+              "node": "Valid Ticket",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Valid Ticket": {
+        "main": [
+          [
+            {
+              "node": "Get Existing Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Match",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Existing Tickets": {
+        "main": [
+          [
+            {
+              "node": "Check Duplicate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Duplicate": {
+        "main": [
+          [
+            {
+              "node": "Is New",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is New": {
+        "main": [
+          [
+            {
+              "node": "Store Ticket",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Skip Duplicate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Daily 0800 Report": {
+        "main": [
+          [
+            {
+              "node": "Get Current Month",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Daily 2100 Report": {
+        "main": [
+          [
+            {
+              "node": "Get Current Month",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Current Month": {
+        "main": [
+          [
+            {
+              "node": "Get All Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get All Tickets": {
+        "main": [
+          [
+            {
+              "node": "Generate Daily Report",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Generate Daily Report": {
+        "main": [
+          [
+            {
+              "node": "Send Report Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "Get many messages",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get many messages": {
+        "main": [
+          [
+            {
+              "node": "Filter and Parse Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Ticket": {
+        "main": [
+          [
+            {
+              "node": "Mark as Read",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Monthly 1st Trigger": {
+        "main": [
+          [
+            {
+              "node": "Setup Month Info",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Setup Month Info": {
+        "main": [
+          [
+            {
+              "node": "Create Month Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Month Sheet": {
+        "main": [
+          [
+            {
+              "node": "Create Totals Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create Totals Sheet": {
+        "main": [
+          [
+            {
+              "node": "Add Headers to Month",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add Headers to Month": {
+        "main": [
+          [
+            {
+              "node": "Build Totals Rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Totals Rows": {
+        "main": [
+          [
+            {
+              "node": "Populate Totals Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Reset January Data": {
+        "main": [
+          [
+            {
+              "node": "Fetch All January Emails",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch All January Emails": {
+        "main": [
+          [
+            {
+              "node": "Parse and Deduplicate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse and Deduplicate": {
+        "main": [
+          [
+            {
+              "node": "Has Tickets?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Tickets?": {
+        "main": [
+          [
+            {
+              "node": "Clear January Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "No Tickets Found",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Clear January Sheet": {
+        "main": [
+          [
+            {
+              "node": "Get Parsed Tickets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Parsed Tickets": {
+        "main": [
+          [
+            {
+              "node": "Repopulate January",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Traffic Summary Trigger": {
+        "main": [
+          [
+            {
+              "node": "Get Message Details",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Message Details": {
+        "main": [
+          [
+            {
+              "node": "Find PDF Attachment",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find PDF Attachment": {
+        "main": [
+          [
+            {
+              "node": "Download PDF",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Download PDF": {
+        "main": [
+          [
+            {
+              "node": "Prepare PDF Binary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare PDF Binary": {
+        "main": [
+          [
+            {
+              "node": "Extract PDF Text",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract PDF Text": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Traffic Data": {
+        "main": [
+          [
+            {
+              "node": "Mark as Read",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "node": "Save Traffic Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Matt Tooley",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-01-14T12:43:07.347Z",
+        "id": 17,
+        "workflowId": "7dXYNzO7bCJjaCGa",
+        "versionId": "6b504eda-78f5-46a3-82d4-461ffc7e2c9b",
+        "event": "activated",
+        "userId": "63ca4f80-9cf5-48e3-ad4c-8a590c95b3d0"
+      }
+    ]
+  }
+}
