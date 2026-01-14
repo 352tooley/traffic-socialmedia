@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreRoster, addToRoster, removeFromRoster, clearCache } from '../services/sheetsService';
-import { APPS_SCRIPT_URL } from '../config';
+import { getStoreRoster, clearCache } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './Roster.css';
 
@@ -11,10 +10,7 @@ export function Roster() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [roster, setRoster] = useState<string[]>([]);
-  const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   // Get store name from URL params (for DM viewing specific store) or session
@@ -33,6 +29,7 @@ export function Roster() {
   const loadRoster = async () => {
     setLoading(true);
     try {
+      clearCache();
       const sheetRoster = await getStoreRoster(storeName);
       setRoster(sheetRoster);
     } catch (err) {
@@ -43,67 +40,8 @@ export function Roster() {
     }
   };
 
-  const handleAddMobileExpert = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    if (roster.includes(name)) {
-      setMessage('Name already exists');
-      setTimeout(() => setMessage(''), 3000);
-      return;
-    }
-
-    if (!APPS_SCRIPT_URL) {
-      setError('Google Apps Script not configured. Contact administrator.');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    try {
-      const success = await addToRoster(storeName, name);
-      if (success) {
-        clearCache();
-        await loadRoster();
-        setNewName('');
-        setMessage('Mobile expert added');
-        setTimeout(() => setMessage(''), 2000);
-      } else {
-        setError('Failed to add mobile expert');
-      }
-    } catch (err) {
-      console.error('Error adding to roster:', err);
-      setError('Failed to add mobile expert');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveMobileExpert = async (name: string) => {
-    if (!confirm(`Remove "${name}" from roster?`)) return;
-
-    if (!APPS_SCRIPT_URL) {
-      setError('Google Apps Script not configured. Contact administrator.');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    try {
-      const success = await removeFromRoster(storeName, name);
-      if (success) {
-        clearCache();
-        await loadRoster();
-        setMessage('Mobile expert removed');
-        setTimeout(() => setMessage(''), 2000);
-      } else {
-        setError('Failed to remove mobile expert');
-      }
-    } catch (err) {
-      console.error('Error removing from roster:', err);
-      setError('Failed to remove mobile expert');
-    } finally {
-      setSaving(false);
-    }
+  const handleRefresh = () => {
+    loadRoster();
   };
 
   if (loading) {
@@ -120,40 +58,31 @@ export function Roster() {
         <h2 className="roster-store">{storeName}</h2>
 
         {error && <div className="roster-error">{error}</div>}
-        {message && <div className="roster-message">{message}</div>}
 
-        {/* Add new mobile expert */}
-        <div className="roster-add">
-          <input
-            type="text"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Enter mobile expert name"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddMobileExpert()}
-            disabled={saving}
-          />
-          <Button onClick={handleAddMobileExpert} disabled={!newName.trim() || saving}>
-            {saving ? 'Adding...' : 'Add'}
-          </Button>
+        <div className="roster-instructions">
+          <p><strong>To add/remove mobile experts:</strong></p>
+          <ol>
+            <li>Open your Google Sheet</li>
+            <li>Go to the "Roster" tab</li>
+            <li>Add a row with: <code>{storeName}</code> in column A, name in column B</li>
+            <li>Click "Refresh" below to see changes</li>
+          </ol>
         </div>
+
+        <Button onClick={handleRefresh} variant="secondary">
+          Refresh Roster
+        </Button>
 
         {/* Roster list */}
         <div className="roster-list">
           <h3>Mobile Experts ({roster.length})</h3>
           {roster.length === 0 ? (
-            <p className="roster-empty">No mobile experts in roster. Add some above.</p>
+            <p className="roster-empty">No mobile experts in roster yet. Add them in Google Sheets.</p>
           ) : (
             <ul>
               {roster.map((name) => (
                 <li key={name}>
                   <span>{name}</span>
-                  <button
-                    className="roster-remove"
-                    onClick={() => handleRemoveMobileExpert(name)}
-                    disabled={saving}
-                  >
-                    Remove
-                  </button>
                 </li>
               ))}
             </ul>
@@ -161,7 +90,7 @@ export function Roster() {
         </div>
 
         <p className="roster-hint">
-          Roster is stored in Google Sheets. Mobile experts can select their name when uploading photos.
+          Mobile experts will see their name in a dropdown when they sign in to upload photos.
         </p>
       </div>
     </Layout>

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreList, fetchPasswords, updateStorePassword, resetStorePassword as resetPassword, clearCache } from '../services/sheetsService';
-import { APPS_SCRIPT_URL } from '../config';
+import { getStoreList, fetchPasswords } from '../services/sheetsService';
 import type { StoreAuth } from '../types';
 import { Layout, Button } from '../components';
 import './Passwords.css';
@@ -11,11 +10,9 @@ export function Passwords() {
   const { session } = useAuth();
   const navigate = useNavigate();
   const [selectedStore, setSelectedStore] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [passwords, setPasswords] = useState<StoreAuth[]>([]);
 
   const stores = getStoreList();
@@ -47,75 +44,14 @@ export function Passwords() {
     return storeAuth?.password || 'password';
   };
 
-  const handleResetToDefault = async () => {
+  const handleChangePassword = () => {
     if (!selectedStore) {
-      setMessage('Please select a store');
+      setMessage('Please select a store first');
+      setTimeout(() => setMessage(''), 3000);
       return;
     }
-    if (!confirm(`Reset ${selectedStore} password to default ("password")?`)) {
-      return;
-    }
-
-    if (!APPS_SCRIPT_URL) {
-      setError('Google Apps Script not configured. Contact administrator.');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    try {
-      const success = await resetPassword(selectedStore);
-      if (success) {
-        clearCache();
-        await loadPasswords();
-        setMessage(`${selectedStore} password reset to default`);
-        setNewPassword('');
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        setError('Failed to reset password');
-      }
-    } catch (err) {
-      console.error('Error resetting password:', err);
-      setError('Failed to reset password');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSetPassword = async () => {
-    if (!selectedStore) {
-      setMessage('Please select a store');
-      return;
-    }
-    if (!newPassword.trim()) {
-      setMessage('Please enter a new password');
-      return;
-    }
-
-    if (!APPS_SCRIPT_URL) {
-      setError('Google Apps Script not configured. Contact administrator.');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-    try {
-      const success = await updateStorePassword(selectedStore, newPassword.trim());
-      if (success) {
-        clearCache();
-        await loadPasswords();
-        setMessage(`${selectedStore} password updated`);
-        setNewPassword('');
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        setError('Failed to update password');
-      }
-    } catch (err) {
-      console.error('Error updating password:', err);
-      setError('Failed to update password');
-    } finally {
-      setSaving(false);
-    }
+    setError(`To change the password for ${selectedStore}, edit the "Passwords" tab in your Google Sheet. Find the row for "${selectedStore}" and update column B with the new password.`);
+    setTimeout(() => setError(''), 10000);
   };
 
   if (loading) {
@@ -129,7 +65,7 @@ export function Passwords() {
   return (
     <Layout title="Store Passwords" showBack>
       <div className="passwords-page">
-        <h2>Reset Store Passwords</h2>
+        <h2>Store Passwords</h2>
 
         {error && <div className="passwords-error">{error}</div>}
         {message && <div className="passwords-message">{message}</div>}
@@ -140,7 +76,6 @@ export function Passwords() {
             <select
               value={selectedStore}
               onChange={(e) => setSelectedStore(e.target.value)}
-              disabled={saving}
             >
               <option value="">Choose a store...</option>
               {stores.map((store) => (
@@ -157,29 +92,9 @@ export function Passwords() {
             </div>
           )}
 
-          <div className="passwords-field">
-            <label>New Password</label>
-            <input
-              type="text"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              disabled={saving}
-            />
-          </div>
-
-          <div className="passwords-actions">
-            <Button onClick={handleSetPassword} disabled={!selectedStore || saving}>
-              {saving ? 'Saving...' : 'Set New Password'}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleResetToDefault}
-              disabled={!selectedStore || saving}
-            >
-              Reset to Default
-            </Button>
-          </div>
+          <Button onClick={handleChangePassword} disabled={!selectedStore}>
+            How to Change Password
+          </Button>
         </div>
 
         {/* All stores list */}
@@ -204,7 +119,8 @@ export function Passwords() {
         </div>
 
         <p className="passwords-hint">
-          Passwords are stored in Google Sheets.
+          To change passwords, edit the "Passwords" tab in your Google Sheet directly.
+          Default password for all stores is "password".
         </p>
       </div>
     </Layout>

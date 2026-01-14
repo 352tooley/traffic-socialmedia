@@ -29,6 +29,36 @@
   margin-bottom: 1rem;
 }
 
+.roster-instructions {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+}
+
+.roster-instructions p {
+  margin: 0 0 0.5rem 0;
+  color: #1e293b;
+}
+
+.roster-instructions ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #475569;
+}
+
+.roster-instructions li {
+  margin-bottom: 0.25rem;
+}
+
+.roster-instructions code {
+  background: #f1f5f9;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
 .roster-loading {
   text-align: center;
   padding: 3rem;
