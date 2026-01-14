@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { uploadPhoto, uploadTeamPhoto, getStoreMetricsByName, getStoreRoster, getMobileExpertStats, getTrafficDataDate, calculateMonthlyGoal } from '../services/sheetsService';
+import { uploadPhoto, uploadTeamPhoto } from '../services/sheetsService';
 import { Layout, Button } from '../components';
 import './UploadPhoto.css';
 
@@ -19,56 +19,12 @@ export function UploadPhoto() {
   const [uploadingTeam, setUploadingTeam] = useState(false);
   const [teamUploadSuccess, setTeamUploadSuccess] = useState(false);
 
-  // Goal tracking state
-  const [individualGoal, setIndividualGoal] = useState<number>(0);
-  const [currentUploads, setCurrentUploads] = useState<number>(0);
-  const [loadingGoal, setLoadingGoal] = useState(true);
-
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const teamPhotoInputRef = useRef<HTMLInputElement>(null);
 
   const storeName = session?.storeName || '';
   const mobileExpertName = session?.mobileExpertName || '';
-
-  // Load goal and progress data
-  useEffect(() => {
-    loadGoalData();
-  }, [storeName, mobileExpertName]);
-
-  const loadGoalData = async () => {
-    if (!storeName || !mobileExpertName) return;
-
-    setLoadingGoal(true);
-    try {
-      // Get store metrics and roster in parallel
-      const [metrics, roster, expertStats, trafficDataDate] = await Promise.all([
-        getStoreMetricsByName(storeName),
-        getStoreRoster(storeName),
-        getMobileExpertStats(storeName, true), // current month only
-        getTrafficDataDate()
-      ]);
-
-      // Only calculate if we have metrics
-      if (metrics) {
-        // Calculate store goal
-        const storeGoal = calculateMonthlyGoal(metrics.traffic, trafficDataDate);
-
-        // Calculate individual goal (store goal / number of MEs)
-        const rosterCount = roster.length;
-        const myGoal = rosterCount > 0 ? Math.round(storeGoal / rosterCount) : 0;
-        setIndividualGoal(myGoal);
-
-        // Get current upload count for this ME
-        const myStats = expertStats.find(s => s.mobileExpert === mobileExpertName);
-        setCurrentUploads(myStats?.uploadCount || 0);
-      }
-    } catch (err) {
-      console.error('Error loading goal data:', err);
-    } finally {
-      setLoadingGoal(false);
-    }
-  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,8 +89,6 @@ export function UploadPhoto() {
 
       if (result.success) {
         setSuccess(true);
-        // Reload goal data to update upload count
-        loadGoalData();
       } else {
         setError(result.error || 'Upload failed. Please try again.');
       }
@@ -153,7 +107,6 @@ export function UploadPhoto() {
     setError('');
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
-    // Goal data already reloaded after upload
   };
 
   const handleTeamPhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,45 +250,6 @@ export function UploadPhoto() {
               Mobile Expert: <strong>{mobileExpertName}</strong>
             </div>
           </div>
-
-          {/* Goal Progress */}
-          {!loadingGoal && individualGoal > 0 && (
-            <div className="upload-goal">
-              <div className="upload-goal__header">
-                <h3>Your Monthly Goal</h3>
-              </div>
-              <div className="upload-goal__stats">
-                <div className="upload-goal__stat">
-                  <div className="upload-goal__label">Current Uploads</div>
-                  <div className="upload-goal__value upload-goal__value--current">{currentUploads}</div>
-                </div>
-                <div className="upload-goal__divider">/</div>
-                <div className="upload-goal__stat">
-                  <div className="upload-goal__label">Goal</div>
-                  <div className="upload-goal__value upload-goal__value--goal">{individualGoal}</div>
-                </div>
-              </div>
-              <div className="upload-goal__progress-bar">
-                <div 
-                  className="upload-goal__progress-fill"
-                  style={{ 
-                    width: `${Math.min((currentUploads / individualGoal) * 100, 100)}%` 
-                  }}
-                />
-              </div>
-              <div className="upload-goal__attainment">
-                {currentUploads >= individualGoal ? (
-                  <span className="upload-goal__attainment--complete">
-                    🎉 Goal Achieved! {Math.round((currentUploads / individualGoal) * 100)}%
-                  </span>
-                ) : (
-                  <span className="upload-goal__attainment--progress">
-                    {Math.round((currentUploads / individualGoal) * 100)}% Complete
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
 
           {error && <div className="upload-form__error">{error}</div>}
 
