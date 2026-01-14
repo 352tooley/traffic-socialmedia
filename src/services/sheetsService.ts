@@ -705,9 +705,16 @@ export async function getMobileExpertStats(storeName?: string, currentMonthOnly:
   // Include deleted photos so counts persist after deletion
   const photos = await getPhotos(storeName, true);
 
+  // Filter to ONLY mobile_expert photos (exclude team and DM photos for homepage)
+  // Only count actual social media ticket uploads in reporting
+  const socialMediaPhotos = photos.filter((photo) => {
+    const photoType = photo.photoType || 'mobile_expert'; // backwards compatibility
+    return photoType === 'mobile_expert';
+  });
+
   // Filter to current month if requested
   const filteredPhotos = currentMonthOnly
-    ? photos.filter((photo) => {
+    ? socialMediaPhotos.filter((photo) => {
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
@@ -717,7 +724,7 @@ export async function getMobileExpertStats(storeName?: string, currentMonthOnly:
         
         return parsed.month === currentMonth && parsed.year === currentYear;
       })
-    : photos;
+    : socialMediaPhotos;
 
   // Count uploads per mobile expert
   const statsMap = new Map<string, MobileExpertStats>();
