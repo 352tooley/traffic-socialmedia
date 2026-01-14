@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getMetricsSortedByPerformance, getDistrictTotals } from '../services/sheetsService';
+import { getMetricsSortedByPerformance, getDistrictTotals, getTrafficDataDate } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import { Layout, KpiCard, DataTable, Loading } from '../components';
 import type { Column } from '../components';
@@ -12,6 +12,7 @@ export function DistrictOverview() {
   const navigate = useNavigate();
   const [stores, setStores] = useState<StoreMetrics[]>([]);
   const [districtTotals, setDistrictTotals] = useState<StoreMetrics | null>(null);
+  const [trafficDataDate, setTrafficDataDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,6 +38,10 @@ export function DistrictOverview() {
       // Load district totals
       const totals = await getDistrictTotals();
       setDistrictTotals(totals);
+
+      // Load traffic data date
+      const dataDate = await getTrafficDataDate();
+      setTrafficDataDate(dataDate);
     } catch (err: any) {
       console.error('Error loading data:', err);
       setError('Failed to load district data');
@@ -101,6 +106,7 @@ export function DistrictOverview() {
               <KpiCard
                 title="Total Traffic"
                 value={districtTotals.traffic}
+                subtitle={trafficDataDate ? `Through ${trafficDataDate}` : undefined}
                 color="green"
               />
               <KpiCard

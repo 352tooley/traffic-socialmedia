@@ -234,6 +234,39 @@ export async function getDistrictTotals(): Promise<StoreMetrics | null> {
   }
 }
 
+/**
+ * Gets the traffic data date from the Traffic Log sheet
+ * This is the "through" date extracted from the traffic PDF by n8n
+ */
+export async function getTrafficDataDate(): Promise<string | null> {
+  if (!APPS_SCRIPT_URL) {
+    console.warn('Apps Script URL not configured');
+    return null;
+  }
+
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'getTrafficDataDate' }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch traffic data date: ${response.status}`);
+    }
+
+    const result = await response.json();
+    if (result.success && result.dataDate) {
+      return result.dataDate;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching traffic data date:', error);
+    return null;
+  }
+}
+
 // ==================== ROSTER FUNCTIONS ====================
 
 /**

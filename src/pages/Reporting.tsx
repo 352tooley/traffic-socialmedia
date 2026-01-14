@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, getStoreList } from '../services/sheetsService';
+import { getStoreMetricsByName, getMobileExpertStats, getStoreRoster, getStoreList, getTrafficDataDate } from '../services/sheetsService';
 import type { StoreMetrics } from '../types';
 import type { MobileExpertStats } from '../services/sheetsService';
 import { Layout, KpiCard, Loading } from '../components';
@@ -11,6 +11,7 @@ export function Reporting() {
   const [metrics, setMetrics] = useState<StoreMetrics | null>(null);
   const [expertStats, setExpertStats] = useState<MobileExpertStats[]>([]);
   const [roster, setRoster] = useState<string[]>([]);
+  const [trafficDataDate, setTrafficDataDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
@@ -34,6 +35,10 @@ export function Reporting() {
     setError('');
 
     try {
+      // Load traffic data date
+      const dataDate = await getTrafficDataDate();
+      setTrafficDataDate(dataDate);
+
       // Load store metrics (only if a specific store is selected)
       if (activeStore) {
         const storeMetrics = await getStoreMetricsByName(activeStore);
@@ -118,7 +123,7 @@ export function Reporting() {
             <KpiCard
               title="Traffic"
               value={metrics.traffic}
-              subtitle="Customer count"
+              subtitle={trafficDataDate ? `Through ${trafficDataDate}` : 'Customer count'}
               color="green"
             />
             <KpiCard

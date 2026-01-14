@@ -90,6 +90,9 @@ function doPost(e) {
       case 'unapprovePhoto':
         result = unapprovePhoto(data.fileId);
         break;
+      case 'getTrafficDataDate':
+        result = getTrafficDataDate();
+        break;
       default:
         result = { success: false, error: 'Unknown action: ' + data.action };
     }
@@ -941,6 +944,51 @@ function testScript() {
   const photos = getPhotos('');
   Logger.log(photos);
   Logger.log('Done!');
+}
+
+/**
+ * Gets the traffic data date from the Traffic Log sheet
+ * Returns the dataDate from the first data row (all rows should have same date)
+ */
+function getTrafficDataDate() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
+
+    if (!sheet) {
+      return { success: false, error: 'Traffic Log sheet not found' };
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    if (data.length < 2) {
+      return { success: true, dataDate: null };
+    }
+
+    // Find dataDate column index from header row
+    const headers = data[0];
+    let dateColIndex = -1;
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i].toString().toLowerCase() === 'datadate') {
+        dateColIndex = i;
+        break;
+      }
+    }
+
+    if (dateColIndex === -1) {
+      return { success: true, dataDate: null };
+    }
+
+    // Get the date from the first data row
+    const dataDate = data[1][dateColIndex];
+
+    return {
+      success: true,
+      dataDate: dataDate ? dataDate.toString() : null
+    };
+  } catch (error) {
+    return { success: false, error: error.toString() };
+  }
 }
 
 /**
