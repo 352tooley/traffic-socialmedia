@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { UserSession } from '../types';
 import { DM_PASSWORD } from '../config';
 import { verifyStorePassword } from '../services/sheetsService';
@@ -14,7 +14,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<UserSession | null>(null);
 
   const loginAsMobileExpert = (storeName: string, mobileExpertName: string) => {
