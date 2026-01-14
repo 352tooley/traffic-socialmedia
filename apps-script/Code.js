@@ -1,1183 +1,711 @@
-/**
- * Google Apps Script for Traffic Social Media App
- *
- * DEPLOYMENT INSTRUCTIONS:
- * 1. Open your Google Sheet
- * 2. Go to Extensions > Apps Script
- * 3. Paste this entire script
- * 4. Click Deploy > New deployment (or Manage deployments > Edit)
- * 5. Select type: Web app
- * 6. Set "Execute as" to your account
- * 7. Set "Who has access" to "Anyone"
- * 8. Click Deploy and copy the URL
- * 9. Paste the URL into src/config.ts APPS_SCRIPT_URL
- *
- * REQUIRED SHEETS:
- * - "Roster" tab with columns: Store Name, Mobile Expert Name
- * - "Passwords" tab with columns: Store Name, Password
- * - "Traffic Log" tab (your main data)
- * - "Photo Log" tab (created automatically)
- *
- * GOOGLE DRIVE:
- * - A folder "Traffic Social Media Photos" will be created automatically
- */
+// ============================================
+// UPDATED GOOGLE APPS SCRIPT FOR MULTI-DISTRICT
+// ============================================
+// This replaces your existing Apps Script
+// Adds 'district' parameter to all functions
+// Writes district as FIRST column in all sheets
+// ============================================
 
 // Configuration
-const ROSTER_SHEET_NAME = 'Roster';
-const PASSWORDS_SHEET_NAME = 'Passwords';
-const TRAFFIC_SHEET_NAME = 'Traffic Log';
-const PHOTO_LOG_SHEET_NAME = 'Photo Log';
-const NOTIFICATIONS_SHEET_NAME = 'Notifications';
-const DRIVE_FOLDER_NAME = 'Traffic Social Media Photos';
-const TIMEZONE = 'America/Chicago'; // Central Time
+const SPREADSHEET_ID = '1xuPzxV40q-i3CZbr6ghnVNJyjfYYHL1ZC4OzFVXHEdA';
+const DRIVE_FOLDER_ID = '1eQU0tIlrPS_b9hk01hac5FfgKoIiXR3F';
 
-// ============ WEB APP HANDLERS ============
+// Sheet names
+const UPLOADS_SHEET = 'Uploads';
+const ROSTER_SHEET = 'Roster';
+const PASSWORDS_SHEET = 'Passwords';
 
+/**
+ * Main entry point for all requests
+ */
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    let result;
+    const action = data.action;
 
-    switch (data.action) {
-      case 'addRoster':
-        result = addToRoster(data.storeName, data.mobileExpertName);
-        break;
-      case 'removeRoster':
-        result = removeFromRoster(data.storeName, data.mobileExpertName);
-        break;
-      case 'updatePassword':
-        result = updatePassword(data.storeName, data.password);
-        break;
+    // Route to appropriate handler
+    switch (action) {
       case 'uploadPhoto':
-        result = uploadPhoto(data.storeName, data.mobileExpertName, data.photoData, data.fileName);
-        break;
-      case 'getPhotos':
-        result = getPhotos(data.storeName, data.includeDeleted);
-        break;
-      case 'deletePhoto':
-        result = deletePhoto(data.fileId, data.storeName);
-        break;
-      case 'getRoster':
-        result = getRoster(data.storeName);
-        break;
-      case 'getNotificationEmail':
-        result = getNotificationEmail(data.storeName);
-        break;
-      case 'setNotificationEmail':
-        result = setNotificationEmail(data.storeName, data.email);
-        break;
-      case 'featurePhoto':
-        result = featurePhoto(data.fileId, data.featuredBy);
-        break;
-      case 'approvePhoto':
-        result = approvePhoto(data.fileId);
-        break;
-      case 'rejectPhoto':
-        result = rejectPhoto(data.fileId);
-        break;
+        return uploadPhoto(data);
       case 'uploadTeamPhoto':
-        result = uploadTeamPhoto(data.storeName, data.uploadedBy, data.photoData, data.fileName);
-        break;
+        return uploadTeamPhoto(data);
       case 'uploadDMPhoto':
-        result = uploadDMPhoto(data.photoData, data.fileName, data.uploadedBy);
-        break;
-      case 'getPendingPhotos':
-        result = getPendingPhotos();
-        break;
-      case 'getApprovedPhotos':
-        result = getApprovedPhotos();
-        break;
+        return uploadDMPhoto(data);
+      case 'getPhotos':
+        return getPhotos(data);
+      case 'deletePhoto':
+        return deletePhoto(data);
+      case 'featurePhoto':
+        return featurePhoto(data);
+      case 'approvePhoto':
+        return approvePhoto(data);
+      case 'rejectPhoto':
+        return rejectPhoto(data);
       case 'unapprovePhoto':
-        result = unapprovePhoto(data.fileId);
-        break;
+        return unapprovePhoto(data);
+      case 'getPendingPhotos':
+        return getPendingPhotos();
+      case 'getApprovedPhotos':
+        return getApprovedPhotos();
+      case 'getRoster':
+        return getRoster(data);
+      case 'addRoster':
+        return addRoster(data);
+      case 'removeRoster':
+        return removeRoster(data);
+      case 'updatePassword':
+        return updatePassword(data);
       case 'getTrafficDataDate':
-        result = getTrafficDataDate();
-        break;
-      case 'fixTrafficFormulas':
-        result = fixTrafficFormulas();
-        break;
+        return getTrafficDataDate();
       default:
-        result = { success: false, error: 'Unknown action: ' + data.action };
+        return respond(false, 'Unknown action: ' + action);
     }
-
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+    return respond(false, 'Error: ' + error.toString());
   }
-}
-
-function doGet(e) {
-  const action = e.parameter.action;
-
-  if (action === 'getPhotos') {
-    const storeName = e.parameter.storeName;
-    const includeDeleted = e.parameter.includeDeleted === 'true';
-    const result = getPhotos(storeName, includeDeleted);
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  if (action === 'fixTrafficFormulas') {
-    const result = fixTrafficFormulas();
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  if (action === 'cleanupTrafficLog') {
-    const result = cleanupTrafficLog();
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  if (action === 'getTrafficDataDate') {
-    const result = getTrafficDataDate();
-    return ContentService.createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'ok',
-    message: 'Traffic Social Media API is running'
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-// ============ PHOTO FUNCTIONS ============
-
-/**
- * Gets or creates the Drive folder for photos
- */
-function getOrCreateFolder() {
-  const folders = DriveApp.getFoldersByName(DRIVE_FOLDER_NAME);
-  if (folders.hasNext()) {
-    return folders.next();
-  }
-  return DriveApp.createFolder(DRIVE_FOLDER_NAME);
 }
 
 /**
- * Converts a Drive file ID to a direct image URL
- * Using thumbnail API which works with ANYONE_WITH_LINK sharing
+ * Uploads a photo (Mobile Expert social media ticket)
+ * NEW: Includes district parameter
  */
-function getDirectImageUrl(fileId) {
-  // Use thumbnail API - works with shared links, doesn't require full public access
-  // sz=w1920 requests 1920px width (high quality for hero images)
-  return 'https://lh3.googleusercontent.com/d/' + fileId + '=s1920?authuser=0';
-}
-
-/**
- * Gets or creates the Photo Log sheet
- * Columns: Store Name, Mobile Expert, Date, Time, File Name, File URL, File ID, Deleted, Featured Status, Featured By, Photo Type
- */
-function getOrCreatePhotoLogSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(PHOTO_LOG_SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(PHOTO_LOG_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 11).setValues([[
-      'Store Name', 'Mobile Expert', 'Date', 'Time', 'File Name', 'File URL', 'File ID', 'Deleted', 'Featured Status', 'Featured By', 'Photo Type'
-    ]]);
-    sheet.setFrozenRows(1);
-  } else {
-    // Check if new columns exist, add if not
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    if (headers.length < 8 || headers[7] !== 'Deleted') {
-      sheet.getRange(1, 8).setValue('Deleted');
-    }
-    if (headers.length < 9 || headers[8] !== 'Featured Status') {
-      sheet.getRange(1, 9).setValue('Featured Status');
-    }
-    if (headers.length < 10 || headers[9] !== 'Featured By') {
-      sheet.getRange(1, 10).setValue('Featured By');
-    }
-    if (headers.length < 11 || headers[10] !== 'Photo Type') {
-      sheet.getRange(1, 11).setValue('Photo Type');
-    }
-  }
-
-  return sheet;
-}
-
-/**
- * Uploads a photo to Google Drive and logs it
- */
-function uploadPhoto(storeName, mobileExpertName, photoData, fileName) {
+function uploadPhoto(data) {
   try {
-    const folder = getOrCreateFolder();
+    const district = data.district || 'West'; // NEW
+    const storeName = data.storeName;
+    const mobileExpertName = data.mobileExpertName;
+    const photoData = data.photoData;
+    const fileName = data.fileName;
 
-    // Decode base64 photo data
-    const decodedData = Utilities.base64Decode(photoData);
-    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
-
-    // Create file in Drive
+    // Upload to Drive
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(photoData),
+      'image/jpeg',
+      fileName
+    );
+    const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
     const file = folder.createFile(blob);
-    file.setDescription(`Store: ${storeName}, Mobile Expert: ${mobileExpertName}`);
-
-    // Make file viewable by anyone with link (works with Google thumbnail API)
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // Get current date/time in Central Time
-    const now = new Date();
-    Logger.log('Raw UTC time: ' + now.toISOString());
-    Logger.log('Timezone being used: ' + TIMEZONE);
-    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
-    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
-    Logger.log('Formatted date: ' + date + ' time: ' + time);
-
-    // Log to Photo Log sheet
-    const sheet = getOrCreatePhotoLogSheet();
+    const fileUrl = file.getUrl();
     const fileId = file.getId();
-    const directUrl = getDirectImageUrl(fileId);
-    
+
+    // Log to Uploads sheet
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const timestamp = new Date();
+    const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
+
+    // NEW STRUCTURE: District is FIRST column
     sheet.appendRow([
-      storeName,
-      mobileExpertName,
-      date,
-      time,
-      fileName,
-      directUrl,
-      fileId,
-      '', // Deleted
-      '', // Featured Status
-      '', // Featured By
-      'mobile_expert' // Photo Type
+      district,           // Column A - NEW!
+      timestamp,          // Column B
+      storeName,          // Column C
+      mobileExpertName,   // Column D
+      dateStr,            // Column E
+      timeStr,            // Column F
+      fileName,           // Column G
+      fileUrl,            // Column H
+      fileId,             // Column I
+      'FALSE',            // Column J - deleted (boolean as string)
+      '',                 // Column K - featuredStatus
+      '',                 // Column L - featuredBy
+      'mobile_expert'     // Column M - photoType
     ]);
 
-    // Send email notification to RSM (if configured)
-    sendPhotoNotification(storeName, mobileExpertName, directUrl, date, time);
-
-    return {
-      success: true,
-      fileUrl: directUrl,
-      fileId: fileId
-    };
+    return respond(true, 'Photo uploaded successfully', { fileUrl, fileId });
   } catch (error) {
-    return { success: false, error: error.toString() };
+    return respond(false, 'Upload failed: ' + error.toString());
   }
 }
 
 /**
- * Gets all photos for a store (or all photos if storeName is empty/null)
- * @param {string} storeName - Filter by store name (empty for all)
- * @param {boolean} includeDeleted - If true, includes soft-deleted photos (for counting)
+ * Uploads a team photo (RSM upload for DM approval)
+ * NEW: Includes district parameter
  */
-function getPhotos(storeName, includeDeleted) {
+function uploadTeamPhoto(data) {
   try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
+    const district = data.district || 'West'; // NEW
+    const storeName = data.storeName;
+    const uploadedBy = data.uploadedBy;
+    const photoData = data.photoData;
+    const fileName = data.fileName;
 
+    // Upload to Drive
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(photoData),
+      'image/jpeg',
+      fileName
+    );
+    const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    const file = folder.createFile(blob);
+    const fileUrl = file.getUrl();
+    const fileId = file.getId();
+
+    // Log to Uploads sheet
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const timestamp = new Date();
+    const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
+
+    // NEW STRUCTURE: District is FIRST column
+    sheet.appendRow([
+      district,           // Column A - NEW!
+      timestamp,          // Column B
+      storeName,          // Column C
+      uploadedBy,         // Column D (RSM name)
+      dateStr,            // Column E
+      timeStr,            // Column F
+      fileName,           // Column G
+      fileUrl,            // Column H
+      fileId,             // Column I
+      'FALSE',            // Column J - deleted
+      'pending',          // Column K - featuredStatus (pending DM approval)
+      uploadedBy,         // Column L - featuredBy (RSM who uploaded)
+      'team'              // Column M - photoType
+    ]);
+
+    return respond(true, 'Team photo uploaded, pending DM approval', { fileUrl, fileId });
+  } catch (error) {
+    return respond(false, 'Upload failed: ' + error.toString());
+  }
+}
+
+/**
+ * Uploads a DM photo (auto-approved for homepage)
+ * NEW: Includes district parameter
+ */
+function uploadDMPhoto(data) {
+  try {
+    const district = data.district || 'West'; // NEW
+    const uploadedBy = data.uploadedBy; // 'DM'
+    const photoData = data.photoData;
+    const fileName = data.fileName;
+
+    // Upload to Drive
+    const blob = Utilities.newBlob(
+      Utilities.base64Decode(photoData),
+      'image/jpeg',
+      fileName
+    );
+    const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    const file = folder.createFile(blob);
+    const fileUrl = file.getUrl();
+    const fileId = file.getId();
+
+    // Log to Uploads sheet
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const timestamp = new Date();
+    const dateStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'MM/dd/yyyy');
+    const timeStr = Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'HH:mm:ss');
+
+    // NEW STRUCTURE: District is FIRST column
+    sheet.appendRow([
+      district,           // Column A - NEW!
+      timestamp,          // Column B
+      'District',         // Column C - storeName (DM photos are district-wide)
+      uploadedBy,         // Column D
+      dateStr,            // Column E
+      timeStr,            // Column F
+      fileName,           // Column G
+      fileUrl,            // Column H
+      fileId,             // Column I
+      'FALSE',            // Column J - deleted
+      'approved',         // Column K - featuredStatus (auto-approved)
+      uploadedBy,         // Column L - featuredBy
+      'dm'                // Column M - photoType
+    ]);
+
+    return respond(true, 'DM photo uploaded and approved', { fileUrl, fileId });
+  } catch (error) {
+    return respond(false, 'Upload failed: ' + error.toString());
+  }
+}
+
+/**
+ * Gets photos (optionally filtered by store)
+ * Returns photos with district field
+ */
+function getPhotos(data) {
+  try {
+    const storeName = data.storeName || '';
+    const includeDeleted = data.includeDeleted || false;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
     const photos = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const photoStoreName = row[0];
-      const isDeleted = row[7] === 'Yes' || row[7] === true;
 
-      // Skip deleted photos unless includeDeleted is true
-      if (isDeleted && !includeDeleted) {
-        continue;
-      }
-
-      // Filter by store if provided
-      if (storeName && photoStoreName !== storeName) {
-        continue;
-      }
-
-      // Format date properly - Google Sheets may return Date objects
-      let dateStr = row[2];
-      if (dateStr instanceof Date) {
-        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
-      } else if (dateStr) {
-        dateStr = String(dateStr);
-      }
-
-      // Format time properly
-      let timeStr = row[3];
-      if (timeStr instanceof Date) {
-        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
-      } else if (timeStr) {
-        timeStr = String(timeStr);
-      }
-
-      // Convert old viewer URLs to direct URLs for backwards compatibility
-      let fileUrl = row[5];
-      const fileId = row[6];
-      if (fileId && (!fileUrl || fileUrl.includes('/file/d/') || fileUrl.includes('/view'))) {
-        fileUrl = getDirectImageUrl(fileId);
-      }
+    // Skip header row
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
       
+      // NEW: Check if we have district column (13+ columns) or old format (12 columns)
+      const hasDistrict = row.length >= 13;
+      
+      const district = hasDistrict ? row[0] : 'West';
+      const timestamp = hasDistrict ? row[1] : row[0];
+      const store = hasDistrict ? row[2] : row[1];
+      const mobileExpert = hasDistrict ? row[3] : row[2];
+      const date = hasDistrict ? row[4] : row[3];
+      const time = hasDistrict ? row[5] : row[4];
+      const fileName = hasDistrict ? row[6] : row[5];
+      const fileUrl = hasDistrict ? row[7] : row[6];
+      const fileId = hasDistrict ? row[8] : row[7];
+      const deleted = hasDistrict ? row[9] : row[8];
+      const featuredStatus = hasDistrict ? row[10] : row[9];
+      const featuredBy = hasDistrict ? row[11] : row[10];
+      const photoType = hasDistrict ? row[12] : row[11];
+
+      // Filter by store if requested
+      if (storeName && store !== storeName) continue;
+
+      // Filter deleted photos unless requested
+      if (!includeDeleted && deleted === true) continue;
+
       photos.push({
-        storeName: photoStoreName,
-        mobileExpert: row[1],
-        date: dateStr,
-        time: timeStr,
-        fileName: row[4],
+        district: district,
+        storeName: store,
+        mobileExpert: mobileExpert,
+        date: date,
+        time: time,
+        fileName: fileName,
         fileUrl: fileUrl,
         fileId: fileId,
-        deleted: isDeleted,
-        featuredStatus: row[8] || '',
-        featuredBy: row[9] || '',
-        photoType: row[10] || 'mobile_expert'
+        deleted: deleted === true,
+        featuredStatus: featuredStatus || '',
+        featuredBy: featuredBy || '',
+        photoType: photoType || 'mobile_expert'
       });
     }
 
-    // Sort by date/time descending (newest first)
-    photos.reverse();
-
-    return { success: true, photos: photos };
+    return respond(true, 'Photos retrieved', { photos });
   } catch (error) {
-    return { success: false, error: error.toString(), photos: [] };
+    return respond(false, 'Error getting photos: ' + error.toString());
   }
 }
 
 /**
- * Soft-deletes a photo - removes from Drive but keeps record for reporting
- * Marks the row as deleted instead of removing it
+ * Gets roster (optionally filtered by store)
+ * Returns roster with district field
  */
-function deletePhoto(fileId, storeName) {
+function getRoster(data) {
   try {
-    // Delete from Drive (frees up storage)
-    try {
-      const file = DriveApp.getFileById(fileId);
-      file.setTrashed(true);
-    } catch (driveError) {
-      // File may already be deleted, continue with soft delete
-      Logger.log('Drive file not found or already deleted: ' + driveError.toString());
-    }
-
-    // Soft delete - mark as deleted in Photo Log (keeps record for reporting)
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][6] === fileId) {
-        // Mark column 8 (Deleted) as "Yes"
-        sheet.getRange(i + 1, 8).setValue('Yes');
-        break;
-      }
-    }
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-// ============ ROSTER FUNCTIONS ============
-
-function addToRoster(storeName, mobileExpertName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(ROSTER_SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(ROSTER_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 2).setValues([['Store Name', 'Mobile Expert Name']]);
-  }
-
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === storeName && data[i][1] === mobileExpertName) {
-      return { success: false, error: 'Already exists' };
-    }
-  }
-
-  sheet.appendRow([storeName, mobileExpertName]);
-  return { success: true };
-}
-
-function removeFromRoster(storeName, mobileExpertName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(ROSTER_SHEET_NAME);
-
-  if (!sheet) return { success: false, error: 'Sheet not found' };
-
-  const data = sheet.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][0] === storeName && data[i][1] === mobileExpertName) {
-      sheet.deleteRow(i + 1);
-      return { success: true };
-    }
-  }
-  return { success: false, error: 'Not found' };
-}
-
-/**
- * Gets roster for a specific store (or all stores if storeName is empty)
- * Returns directly from sheet - no caching delays
- */
-function getRoster(storeName) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(ROSTER_SHEET_NAME);
-
-    if (!sheet) {
-      return { success: true, roster: [] };
-    }
-
-    const data = sheet.getDataRange().getValues();
+    const storeName = data.storeName || '';
+    
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(ROSTER_SHEET);
+    const rows = sheet.getDataRange().getValues();
     const rosterMap = {};
 
     // Skip header row
-    for (let i = 1; i < data.length; i++) {
-      const rowStoreName = data[i][0]?.toString().trim();
-      const mobileExpert = data[i][1]?.toString().trim();
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      
+      // NEW: Check if we have district column (3 columns) or old format (2 columns)
+      const hasDistrict = row.length >= 3;
+      
+      const district = hasDistrict ? row[0] : 'West';
+      const store = hasDistrict ? row[1] : row[0];
+      const meName = hasDistrict ? row[2] : row[1];
 
-      if (!rowStoreName || !mobileExpert) continue;
+      if (!store || !meName) continue;
 
-      // Filter by store if provided
-      if (storeName && rowStoreName !== storeName) continue;
+      // Filter by store if requested
+      if (storeName && store !== storeName) continue;
 
-      if (!rosterMap[rowStoreName]) {
-        rosterMap[rowStoreName] = [];
+      if (!rosterMap[store]) {
+        rosterMap[store] = {
+          storeName: store,
+          district: district,
+          mobileExperts: []
+        };
       }
-      if (!rosterMap[rowStoreName].includes(mobileExpert)) {
-        rosterMap[rowStoreName].push(mobileExpert);
+
+      if (rosterMap[store].mobileExperts.indexOf(meName) === -1) {
+        rosterMap[store].mobileExperts.push(meName);
       }
     }
 
-    // Convert to array format
-    const roster = Object.keys(rosterMap).map(store => ({
-      storeName: store,
-      mobileExperts: rosterMap[store].sort()
-    }));
-
-    return { success: true, roster: roster };
+    const roster = Object.keys(rosterMap).map(key => rosterMap[key]);
+    return respond(true, 'Roster retrieved', { roster });
   } catch (error) {
-    return { success: false, error: error.toString(), roster: [] };
+    return respond(false, 'Error getting roster: ' + error.toString());
   }
-}
-
-// ============ PASSWORD FUNCTIONS ============
-
-function updatePassword(storeName, password) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(PASSWORDS_SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(PASSWORDS_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 2).setValues([['Store Name', 'Password']]);
-  }
-
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === storeName) {
-      sheet.getRange(i + 1, 2).setValue(password);
-      return { success: true };
-    }
-  }
-
-  sheet.appendRow([storeName, password]);
-  return { success: true };
-}
-
-// ============ NOTIFICATION FUNCTIONS ============
-
-/**
- * Gets or creates the Notifications sheet
- * Columns: Store Name, Email
- */
-function getOrCreateNotificationsSheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(NOTIFICATIONS_SHEET_NAME);
-
-  if (!sheet) {
-    sheet = ss.insertSheet(NOTIFICATIONS_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 2).setValues([['Store Name', 'Email']]);
-    sheet.setFrozenRows(1);
-  }
-
-  return sheet;
 }
 
 /**
- * Gets the notification email for a store
+ * Adds a mobile expert to roster
+ * NEW: Gets district from existing store entry or defaults to West
  */
-function getNotificationEmail(storeName) {
+function addRoster(data) {
   try {
-    const sheet = getOrCreateNotificationsSheet();
-    const data = sheet.getDataRange().getValues();
+    const storeName = data.storeName;
+    const mobileExpertName = data.mobileExpertName;
 
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === storeName) {
-        return { success: true, email: data[i][1] || '' };
-      }
-    }
-
-    return { success: true, email: '' };
-  } catch (error) {
-    return { success: false, error: error.toString(), email: '' };
-  }
-}
-
-/**
- * Sets the notification email for a store
- */
-function setNotificationEmail(storeName, email) {
-  try {
-    const sheet = getOrCreateNotificationsSheet();
-    const data = sheet.getDataRange().getValues();
-
-    // Check if store already exists
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === storeName) {
-        sheet.getRange(i + 1, 2).setValue(email);
-        return { success: true };
-      }
-    }
-
-    // Add new row
-    sheet.appendRow([storeName, email]);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * Sends email notification when a photo is uploaded
- */
-function sendPhotoNotification(storeName, mobileExpertName, fileUrl, date, time) {
-  Logger.log('sendPhotoNotification called for store: ' + storeName);
-  
-  try {
-    const result = getNotificationEmail(storeName);
-    Logger.log('getNotificationEmail result: ' + JSON.stringify(result));
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(ROSTER_SHEET);
+    const rows = sheet.getDataRange().getValues();
     
-    if (!result.success) {
-      Logger.log('Failed to get notification email: ' + result.error);
-      return;
-    }
-    
-    if (!result.email) {
-      Logger.log('No email configured for store: ' + storeName);
-      return;
-    }
-
-    const email = result.email;
-    Logger.log('Sending email to: ' + email);
-    
-    const subject = '📸 New Photo Upload - ' + storeName;
-    const body = 'A new photo has been uploaded!\n\n' +
-      'Store: ' + storeName + '\n' +
-      'Mobile Expert: ' + mobileExpertName + '\n' +
-      'Date: ' + date + '\n' +
-      'Time: ' + time + '\n\n' +
-      'View Photo: ' + fileUrl + '\n\n' +
-      '---\nTraffic Social Media App';
-
-    MailApp.sendEmail(email, subject, body);
-
-    Logger.log('Notification email sent successfully to ' + email);
-  } catch (error) {
-    Logger.log('ERROR in sendPhotoNotification: ' + error.toString());
-    Logger.log('Error stack: ' + error.stack);
-    // Don't throw - notification failure shouldn't break upload
-  }
-}
-
-// ============ PHOTO FEATURING & APPROVAL ============
-
-/**
- * Marks a photo as pending approval (RSM recommends for homepage)
- */
-function featurePhoto(fileId, featuredBy) {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][6] === fileId) {
-        sheet.getRange(i + 1, 9).setValue('pending'); // Featured Status
-        sheet.getRange(i + 1, 10).setValue(featuredBy); // Featured By
-        return { success: true };
-      }
-    }
-
-    return { success: false, error: 'Photo not found' };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * Approves a photo for homepage display (DM only)
- */
-function approvePhoto(fileId) {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][6] === fileId) {
-        sheet.getRange(i + 1, 9).setValue('approved');
-        return { success: true };
-      }
-    }
-
-    return { success: false, error: 'Photo not found' };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * Rejects a photo from homepage (DM only)
- */
-function rejectPhoto(fileId) {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][6] === fileId) {
-        sheet.getRange(i + 1, 9).setValue('rejected');
-        return { success: true };
-      }
-    }
-
-    return { success: false, error: 'Photo not found' };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * RSM uploads a team photo (goes to DM approval)
- */
-function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
-  try {
-    const folder = getOrCreateFolder();
-
-    // Decode base64 photo data
-    const decodedData = Utilities.base64Decode(photoData);
-    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
-
-    // Create file in Drive
-    const file = folder.createFile(blob);
-    file.setDescription(`Store: ${storeName}, Team Photo by: ${uploadedBy}`);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    // Get current date/time
-    const now = new Date();
-    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
-    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
-
-    // Log to Photo Log sheet
-    const sheet = getOrCreatePhotoLogSheet();
-    const fileId = file.getId();
-    const directUrl = getDirectImageUrl(fileId);
-    
-    sheet.appendRow([
-      storeName,
-      uploadedBy,
-      date,
-      time,
-      fileName,
-      directUrl,
-      fileId,
-      '', // Deleted
-      'pending', // Featured Status - auto-pending for team photos
-      uploadedBy, // Featured By
-      'team' // Photo Type
-    ]);
-
-    return {
-      success: true,
-      fileUrl: directUrl,
-      fileId: fileId
-    };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * DM uploads a photo (auto-approved for homepage)
- */
-function uploadDMPhoto(photoData, fileName, uploadedBy) {
-  try {
-    const folder = getOrCreateFolder();
-    Logger.log('uploadDMPhoto: Folder found/created: ' + folder.getName());
-
-    // Decode base64 photo data
-    const decodedData = Utilities.base64Decode(photoData);
-    const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
-    Logger.log('uploadDMPhoto: Blob created, size: ' + blob.getBytes().length);
-
-    // Create file in Drive
-    const file = folder.createFile(blob);
-    const fileId = file.getId();
-    Logger.log('uploadDMPhoto: File created with ID: ' + fileId);
-    
-    file.setDescription('DM Photo by: ' + uploadedBy);
-    
-    // Set sharing to anyone with link (works with Google thumbnail API)
-    try {
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      Logger.log('uploadDMPhoto: Sharing set to ANYONE_WITH_LINK');
-    } catch (shareError) {
-      Logger.log('uploadDMPhoto: Error setting sharing: ' + shareError.toString());
-    }
-
-    // Get current date/time
-    const now = new Date();
-    const date = Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy');
-    const time = Utilities.formatDate(now, 'America/Chicago', 'hh:mm a');
-
-    // Log to Photo Log sheet
-    const sheet = getOrCreatePhotoLogSheet();
-    const directUrl = getDirectImageUrl(fileId);
-    Logger.log('uploadDMPhoto: Direct URL: ' + directUrl);
-    
-    sheet.appendRow([
-      'District',
-      uploadedBy,
-      date,
-      time,
-      fileName,
-      directUrl,
-      fileId,
-      '', // Deleted
-      'approved', // Featured Status - auto-approved for DM
-      uploadedBy, // Featured By
-      'dm' // Photo Type
-    ]);
-
-    return {
-      success: true,
-      fileUrl: directUrl,
-      fileId: fileId
-    };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-/**
- * Gets all pending photos for DM approval
- */
-function getPendingPhotos() {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    const photos = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const isDeleted = row[7] === 'Yes' || row[7] === true;
-      const featuredStatus = row[8] || '';
-
-      // Only get pending, non-deleted photos
-      if (isDeleted || featuredStatus !== 'pending') {
-        continue;
-      }
-
-      // Format dates
-      let dateStr = row[2];
-      if (dateStr instanceof Date) {
-        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
-      } else if (dateStr) {
-        dateStr = String(dateStr);
-      }
-
-      let timeStr = row[3];
-      if (timeStr instanceof Date) {
-        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
-      } else if (timeStr) {
-        timeStr = String(timeStr);
-      }
-
-      photos.push({
-        storeName: row[0],
-        mobileExpert: row[1],
-        date: dateStr,
-        time: timeStr,
-        fileName: row[4],
-        fileUrl: row[5],
-        fileId: row[6],
-        featuredBy: row[9] || '',
-        photoType: row[10] || 'mobile_expert'
-      });
-    }
-
-    return { success: true, photos: photos };
-  } catch (error) {
-    return { success: false, error: error.toString(), photos: [] };
-  }
-}
-
-/**
- * Gets all approved photos (currently on homepage)
- */
-function getApprovedPhotos() {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    const photos = [];
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const isDeleted = row[7] === 'Yes' || row[7] === true;
-      const featuredStatus = row[8] || '';
-
-      // Only get approved, non-deleted photos
-      if (isDeleted || featuredStatus !== 'approved') {
-        continue;
-      }
-
-      // Format dates
-      let dateStr = row[2];
-      if (dateStr instanceof Date) {
-        dateStr = Utilities.formatDate(dateStr, TIMEZONE, 'MM/dd/yyyy');
-      } else if (dateStr) {
-        dateStr = String(dateStr);
-      }
-
-      let timeStr = row[3];
-      if (timeStr instanceof Date) {
-        timeStr = Utilities.formatDate(timeStr, TIMEZONE, 'hh:mm a');
-      } else if (timeStr) {
-        timeStr = String(timeStr);
-      }
-
-      photos.push({
-        storeName: row[0],
-        mobileExpert: row[1],
-        date: dateStr,
-        time: timeStr,
-        fileName: row[4],
-        fileUrl: row[5],
-        fileId: row[6],
-        featuredBy: row[9] || '',
-        photoType: row[10] || 'mobile_expert'
-      });
-    }
-
-    return { success: true, photos: photos };
-  } catch (error) {
-    return { success: false, error: error.toString(), photos: [] };
-  }
-}
-
-/**
- * Unapproves a photo (removes from homepage rotation)
- */
-function unapprovePhoto(fileId) {
-  try {
-    const sheet = getOrCreatePhotoLogSheet();
-    const data = sheet.getDataRange().getValues();
-
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][6] === fileId) {
-        sheet.getRange(i + 1, 9).setValue(''); // Clear featured status
-        return { success: true };
-      }
-    }
-
-    return { success: false, error: 'Photo not found' };
-  } catch (error) {
-    return { success: false, error: error.toString() };
-  }
-}
-
-// ============ TRAFFIC DATA CLEANUP ============
-
-function cleanupTrafficLog() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
-
-  if (!sheet) {
-    Logger.log('Traffic Log sheet not found!');
-    return;
-  }
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) {
-    Logger.log('No data to clean');
-    return;
-  }
-
-  const headers = data[0];
-  let storeColIndex = -1;
-  for (let i = 0; i < headers.length; i++) {
-    if (headers[i].toString().toLowerCase().includes('store')) {
-      storeColIndex = i;
-      break;
-    }
-  }
-
-  if (storeColIndex === -1) {
-    Logger.log('Store Name column not found!');
-    return;
-  }
-
-  const lastOccurrence = new Map();
-  for (let i = 1; i < data.length; i++) {
-    const storeName = data[i][storeColIndex]?.toString().trim();
-    if (!storeName || storeName.toLowerCase() === 'total') continue;
-    lastOccurrence.set(storeName, i);
-  }
-
-  const rowsToDelete = [];
-  const seenStores = new Set();
-
-  for (let i = data.length - 1; i >= 1; i--) {
-    const storeName = data[i][storeColIndex]?.toString().trim();
-    if (!storeName || storeName.toLowerCase() === 'total') continue;
-
-    if (seenStores.has(storeName)) {
-      rowsToDelete.push(i + 1);
-    } else {
-      seenStores.add(storeName);
-    }
-  }
-
-  rowsToDelete.sort((a, b) => b - a);
-  for (const row of rowsToDelete) {
-    sheet.deleteRow(row);
-  }
-
-  Logger.log('Cleanup complete! Removed ' + rowsToDelete.length + ' duplicate rows.');
-}
-
-function setupDailyCleanup() {
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(trigger => {
-    if (trigger.getHandlerFunction() === 'cleanupTrafficLog') {
-      ScriptApp.deleteTrigger(trigger);
-    }
-  });
-
-  ScriptApp.newTrigger('cleanupTrafficLog')
-    .timeBased()
-    .everyDays(1)
-    .atHour(6)
-    .create();
-
-  Logger.log('Daily cleanup scheduled for 6 AM');
-}
-
-function testScript() {
-  Logger.log('Testing...');
-  const photos = getPhotos('');
-  Logger.log(photos);
-  Logger.log('Done!');
-}
-
-/**
- * Cleans up duplicate rows in Traffic Log sheet
- * Keeps only the last occurrence of each store (newest data)
- */
-function cleanupTrafficLog() {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
-
-    if (!sheet) {
-      return { success: false, error: 'Traffic Log sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) {
-      return { success: true, message: 'No data to clean' };
-    }
-
-    const headers = data[0];
-
-    // Find store column
-    let storeCol = 0;
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i].toString().toLowerCase() === 'store') {
-        storeCol = i;
+    // Find district for this store from existing entries
+    let district = 'West'; // default
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 3;
+      const rowStore = hasDistrict ? row[1] : row[0];
+      const rowDistrict = hasDistrict ? row[0] : 'West';
+      
+      if (rowStore === storeName) {
+        district = rowDistrict;
         break;
       }
     }
 
-    // Keep only the LAST occurrence of each store (newest)
-    const storeMap = new Map();
-    for (let i = 1; i < data.length; i++) {
-      const storeName = data[i][storeCol]?.toString().trim();
-      if (storeName) {
-        storeMap.set(storeName, data[i]); // Overwrites with latest
-      }
-    }
+    // NEW STRUCTURE: District | Store Name | Mobile Expert Name
+    sheet.appendRow([district, storeName, mobileExpertName]);
 
-    // Clear sheet and rewrite with deduplicated data
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-
-    const uniqueRows = Array.from(storeMap.values());
-    if (uniqueRows.length > 0) {
-      sheet.getRange(2, 1, uniqueRows.length, headers.length).setValues(uniqueRows);
-    }
-
-    return {
-      success: true,
-      message: `Cleaned up Traffic Log: ${data.length - 1} rows -> ${uniqueRows.length} unique stores`
-    };
+    return respond(true, 'Mobile expert added to roster');
   } catch (error) {
-    return { success: false, error: error.toString() };
+    return respond(false, 'Error adding to roster: ' + error.toString());
   }
 }
 
 /**
- * Fixes the Traffic column formulas in the main metrics sheet
- * Updates formulas to properly reference Traffic Log sheet
+ * Removes a mobile expert from roster
  */
-function fixTrafficFormulas() {
+function removeRoster(data) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const storeName = data.storeName;
+    const mobileExpertName = data.mobileExpertName;
 
-    // Find the main metrics sheet by gid
-    const sheets = ss.getSheets();
-    let metricsSheet = null;
-    for (const sheet of sheets) {
-      if (sheet.getSheetId() === 147391931) {
-        metricsSheet = sheet;
-        break;
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(ROSTER_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    // Find and delete the row
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 3;
+      const rowStore = hasDistrict ? row[1] : row[0];
+      const rowME = hasDistrict ? row[2] : row[1];
+
+      if (rowStore === storeName && rowME === mobileExpertName) {
+        sheet.deleteRow(i + 1);
+        return respond(true, 'Mobile expert removed from roster');
       }
     }
 
-    if (!metricsSheet) {
-      return { success: false, error: 'Main metrics sheet (gid=147391931) not found' };
-    }
-
-    const data = metricsSheet.getDataRange().getValues();
-    const headers = data[0];
-
-    // Find column indices
-    let storeCol = -1, trafficCol = -1;
-    for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].toString().toLowerCase();
-      if (h === 'store name') storeCol = i;
-      if (h === 'traffic') trafficCol = i;
-    }
-
-    if (trafficCol === -1) {
-      return { success: false, error: 'Traffic column not found' };
-    }
-
-    // Update Traffic column formulas for each store row
-    let fixedCount = 0;
-    for (let row = 1; row < data.length; row++) {
-      const storeName = data[row][storeCol];
-      if (!storeName || storeName.toString().toLowerCase() === 'total') continue;
-
-      // Set formula: =IFERROR(VLOOKUP(A{row+1},'Traffic Log'!A:B,2,FALSE),0)
-      const cell = metricsSheet.getRange(row + 1, trafficCol + 1);
-      const formula = `=IFERROR(VLOOKUP(A${row + 1},'Traffic Log'!A:B,2,FALSE),0)`;
-      cell.setFormula(formula);
-      fixedCount++;
-    }
-
-    // Fix Total row - sum of traffic
-    const totalRow = data.findIndex(r => r[storeCol]?.toString().toLowerCase() === 'total');
-    if (totalRow !== -1) {
-      const totalCell = metricsSheet.getRange(totalRow + 1, trafficCol + 1);
-      totalCell.setFormula(`=SUM(C2:C${totalRow})`);
-    }
-
-    return {
-      success: true,
-      message: `Fixed ${fixedCount} traffic formulas`,
-      sheetName: metricsSheet.getName()
-    };
+    return respond(false, 'Mobile expert not found in roster');
   } catch (error) {
-    return { success: false, error: error.toString() };
+    return respond(false, 'Error removing from roster: ' + error.toString());
   }
 }
 
 /**
- * Gets the traffic data date from the Traffic Log sheet
- * Returns the dataDate from the first data row (all rows should have same date)
+ * Updates a store password
+ * NEW: Updates by both district and store name for accuracy
+ */
+function updatePassword(data) {
+  try {
+    const storeName = data.storeName;
+    const newPassword = data.password;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(PASSWORDS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    // Find and update the password
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 3;
+      const rowStore = hasDistrict ? row[1] : row[0];
+
+      if (rowStore === storeName) {
+        const passwordCol = hasDistrict ? 3 : 2; // Column C or B
+        sheet.getRange(i + 1, passwordCol).setValue(newPassword);
+        return respond(true, 'Password updated');
+      }
+    }
+
+    return respond(false, 'Store not found in passwords sheet');
+  } catch (error) {
+    return respond(false, 'Error updating password: ' + error.toString());
+  }
+}
+
+/**
+ * Gets the traffic data date from Traffic Log sheet
  */
 function getTrafficDataDate() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(TRAFFIC_SHEET_NAME);
-
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Traffic Log');
     if (!sheet) {
-      return { success: false, error: 'Traffic Log sheet not found' };
+      return respond(false, 'Traffic Log sheet not found');
     }
 
-    // Use getDisplayValues to get exact string as shown in sheet (avoids timezone issues)
-    const data = sheet.getDataRange().getDisplayValues();
-
-    if (data.length < 2) {
-      return { success: true, dataDate: null };
-    }
-
-    // Find dataDate column index from header row
-    const headers = data[0];
-    let dateColIndex = -1;
-    for (let i = 0; i < headers.length; i++) {
-      if (headers[i].toString().toLowerCase() === 'datadate') {
-        dateColIndex = i;
-        break;
-      }
-    }
-
-    if (dateColIndex === -1) {
-      return { success: true, dataDate: null };
-    }
-
-    // Get the date from the first data row (already a string from getDisplayValues)
-    let dataDate = data[1][dateColIndex];
-
-    // Convert MM/DD/YYYY to readable format if needed
-    if (dataDate && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dataDate)) {
-      const [month, day, year] = dataDate.split('/');
-      const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                      'July', 'August', 'September', 'October', 'November', 'December'];
-      dataDate = months[parseInt(month) - 1] + ' ' + parseInt(day) + ', ' + year;
-    }
-
-    return {
-      success: true,
-      dataDate: dataDate || null
-    };
+    // Get the date from cell B1 (or wherever your date is stored)
+    const dataDate = sheet.getRange('B1').getValue();
+    
+    return respond(true, 'Traffic data date retrieved', { 
+      dataDate: dataDate ? dataDate.toString() : null 
+    });
   } catch (error) {
-    return { success: false, error: error.toString() };
+    return respond(false, 'Error getting traffic data date: ' + error.toString());
   }
 }
 
 /**
- * Test function to debug timezone and email - run this from Apps Script editor
+ * Soft-deletes a photo
  */
-function testTimezoneAndEmail() {
-  const now = new Date();
-  Logger.log('=== TIMEZONE TEST ===');
-  Logger.log('Raw Date object: ' + now);
-  Logger.log('toISOString (UTC): ' + now.toISOString());
-  Logger.log('Script timezone setting: ' + Session.getScriptTimeZone());
-  Logger.log('Formatted with America/Chicago: ' + Utilities.formatDate(now, 'America/Chicago', 'MM/dd/yyyy hh:mm:ss a'));
-  Logger.log('Formatted with UTC: ' + Utilities.formatDate(now, 'UTC', 'MM/dd/yyyy hh:mm:ss a'));
-  
-  Logger.log('\n=== EMAIL TEST ===');
-  // Test getting notification emails
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName('Notifications');
-  if (sheet) {
-    const data = sheet.getDataRange().getValues();
-    Logger.log('Notifications sheet data:');
-    for (let i = 0; i < data.length; i++) {
-      Logger.log('Row ' + i + ': ' + JSON.stringify(data[i]));
-    }
-  } else {
-    Logger.log('Notifications sheet does not exist');
-  }
-  
-  // Test sending email to yourself
-  Logger.log('\nAttempting to send test email...');
+function deletePhoto(data) {
   try {
-    const testEmail = Session.getActiveUser().getEmail();
-    Logger.log('Sending to: ' + testEmail);
-    MailApp.sendEmail(testEmail, 'Test Email from Traffic App', 'This is a test email to verify email sending works.');
-    Logger.log('Test email sent successfully!');
-  } catch (e) {
-    Logger.log('Failed to send test email: ' + e.toString());
+    const fileId = data.fileId;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      const rowFileId = hasDistrict ? row[8] : row[7];
+
+      if (rowFileId === fileId) {
+        const deletedCol = hasDistrict ? 10 : 9; // Column J or I
+        sheet.getRange(i + 1, deletedCol).setValue(true);
+        return respond(true, 'Photo deleted');
+      }
+    }
+
+    return respond(false, 'Photo not found');
+  } catch (error) {
+    return respond(false, 'Error deleting photo: ' + error.toString());
   }
+}
+
+/**
+ * Features a photo for DM approval
+ */
+function featurePhoto(data) {
+  try {
+    const fileId = data.fileId;
+    const featuredBy = data.featuredBy;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      const rowFileId = hasDistrict ? row[8] : row[7];
+
+      if (rowFileId === fileId) {
+        const statusCol = hasDistrict ? 11 : 10; // Column K or J
+        const byCol = hasDistrict ? 12 : 11; // Column L or K
+        
+        sheet.getRange(i + 1, statusCol).setValue('pending');
+        sheet.getRange(i + 1, byCol).setValue(featuredBy);
+        return respond(true, 'Photo featured for approval');
+      }
+    }
+
+    return respond(false, 'Photo not found');
+  } catch (error) {
+    return respond(false, 'Error featuring photo: ' + error.toString());
+  }
+}
+
+/**
+ * Approves a photo for homepage
+ */
+function approvePhoto(data) {
+  try {
+    const fileId = data.fileId;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      const rowFileId = hasDistrict ? row[8] : row[7];
+
+      if (rowFileId === fileId) {
+        const statusCol = hasDistrict ? 11 : 10;
+        sheet.getRange(i + 1, statusCol).setValue('approved');
+        return respond(true, 'Photo approved');
+      }
+    }
+
+    return respond(false, 'Photo not found');
+  } catch (error) {
+    return respond(false, 'Error approving photo: ' + error.toString());
+  }
+}
+
+/**
+ * Rejects a photo
+ */
+function rejectPhoto(data) {
+  try {
+    const fileId = data.fileId;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      const rowFileId = hasDistrict ? row[8] : row[7];
+
+      if (rowFileId === fileId) {
+        const statusCol = hasDistrict ? 11 : 10;
+        sheet.getRange(i + 1, statusCol).setValue('rejected');
+        return respond(true, 'Photo rejected');
+      }
+    }
+
+    return respond(false, 'Photo not found');
+  } catch (error) {
+    return respond(false, 'Error rejecting photo: ' + error.toString());
+  }
+}
+
+/**
+ * Unapproves a photo (removes from homepage)
+ */
+function unapprovePhoto(data) {
+  try {
+    const fileId = data.fileId;
+
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      const rowFileId = hasDistrict ? row[8] : row[7];
+
+      if (rowFileId === fileId) {
+        const statusCol = hasDistrict ? 11 : 10;
+        sheet.getRange(i + 1, statusCol).setValue('');
+        return respond(true, 'Photo unapproved');
+      }
+    }
+
+    return respond(false, 'Photo not found');
+  } catch (error) {
+    return respond(false, 'Error unapproving photo: ' + error.toString());
+  }
+}
+
+/**
+ * Gets pending photos for DM approval
+ */
+function getPendingPhotos() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+    const photos = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      
+      const district = hasDistrict ? row[0] : 'West';
+      const store = hasDistrict ? row[2] : row[1];
+      const mobileExpert = hasDistrict ? row[3] : row[2];
+      const date = hasDistrict ? row[4] : row[3];
+      const time = hasDistrict ? row[5] : row[4];
+      const fileName = hasDistrict ? row[6] : row[5];
+      const fileUrl = hasDistrict ? row[7] : row[6];
+      const fileId = hasDistrict ? row[8] : row[7];
+      const deleted = hasDistrict ? row[9] : row[8];
+      const featuredStatus = hasDistrict ? row[10] : row[9];
+      const featuredBy = hasDistrict ? row[11] : row[10];
+      const photoType = hasDistrict ? row[12] : row[11];
+
+      if (featuredStatus === 'pending' && deleted !== true) {
+        photos.push({
+          district: district,
+          storeName: store,
+          mobileExpert: mobileExpert,
+          date: date,
+          time: time,
+          fileName: fileName,
+          fileUrl: fileUrl,
+          fileId: fileId,
+          deleted: false,
+          featuredStatus: featuredStatus,
+          featuredBy: featuredBy || '',
+          photoType: photoType || 'mobile_expert'
+        });
+      }
+    }
+
+    return respond(true, 'Pending photos retrieved', { photos });
+  } catch (error) {
+    return respond(false, 'Error getting pending photos: ' + error.toString());
+  }
+}
+
+/**
+ * Gets approved photos (on homepage)
+ */
+function getApprovedPhotos() {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(UPLOADS_SHEET);
+    const rows = sheet.getDataRange().getValues();
+    const photos = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const hasDistrict = row.length >= 13;
+      
+      const district = hasDistrict ? row[0] : 'West';
+      const store = hasDistrict ? row[2] : row[1];
+      const mobileExpert = hasDistrict ? row[3] : row[2];
+      const date = hasDistrict ? row[4] : row[3];
+      const time = hasDistrict ? row[5] : row[4];
+      const fileName = hasDistrict ? row[6] : row[5];
+      const fileUrl = hasDistrict ? row[7] : row[6];
+      const fileId = hasDistrict ? row[8] : row[7];
+      const deleted = hasDistrict ? row[9] : row[8];
+      const featuredStatus = hasDistrict ? row[10] : row[9];
+      const featuredBy = hasDistrict ? row[11] : row[10];
+      const photoType = hasDistrict ? row[12] : row[11];
+
+      if (featuredStatus === 'approved' && deleted !== true) {
+        photos.push({
+          district: district,
+          storeName: store,
+          mobileExpert: mobileExpert,
+          date: date,
+          time: time,
+          fileName: fileName,
+          fileUrl: fileUrl,
+          fileId: fileId,
+          deleted: false,
+          featuredStatus: featuredStatus,
+          featuredBy: featuredBy || '',
+          photoType: photoType || 'mobile_expert'
+        });
+      }
+    }
+
+    return respond(true, 'Approved photos retrieved', { photos });
+  } catch (error) {
+    return respond(false, 'Error getting approved photos: ' + error.toString());
+  }
+}
+
+/**
+ * Helper function to format responses
+ */
+function respond(success, message, data) {
+  const response = {
+    success: success,
+    message: message
+  };
+
+  if (data) {
+    Object.keys(data).forEach(key => {
+      response[key] = data[key];
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
 }
