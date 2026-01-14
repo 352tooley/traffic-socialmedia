@@ -125,6 +125,13 @@
   background: #2563eb;
 }
 
+.download-item__no-link {
+  color: #9ca3af;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .download-item__delete {
   background: transparent;
   color: #dc2626;

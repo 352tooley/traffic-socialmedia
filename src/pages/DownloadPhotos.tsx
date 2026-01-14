@@ -258,14 +258,18 @@ export function DownloadPhotos() {
                   </div>
                 </div>
                 <div className="download-item__actions">
-                  <a
-                    href={photo.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="download-item__link"
-                  >
-                    View
-                  </a>
+                  {photo.fileUrl && photo.fileUrl.startsWith('http') ? (
+                    <a
+                      href={photo.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="download-item__link"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    <span className="download-item__no-link">No file</span>
+                  )}
                   {canFeature && photo.featuredStatus !== 'pending' && photo.featuredStatus !== 'approved' && (
                     <button
                       className="download-item__feature"
