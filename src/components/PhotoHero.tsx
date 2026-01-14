@@ -19,9 +19,14 @@ export function PhotoHero() {
       
       // Get the 6 most recent approved photos for the collage
       const displayPhotos = approvedPhotos.slice(0, 6);
-      console.log('PhotoHero: Displaying photos:', displayPhotos.length);
+      console.log('PhotoHero: Displaying photos:', displayPhotos.length, displayPhotos);
       
-      setPhotos(displayPhotos);
+      if (displayPhotos.length > 0) {
+        console.log('PhotoHero: Setting photos state with:', displayPhotos);
+        setPhotos(displayPhotos);
+      } else {
+        console.warn('PhotoHero: No approved photos to display');
+      }
     } catch (err) {
       console.error('PhotoHero: Error loading photos:', err);
       setPhotos([]);
@@ -30,35 +35,46 @@ export function PhotoHero() {
     }
   };
 
+  console.log('PhotoHero: Render - loading:', loading, 'photos.length:', photos.length);
+
   return (
     <div className="photo-hero">
       <div className="photo-hero__collage">
         {loading ? (
-          <div className="photo-hero__loading">
-            <div className="photo-hero__shimmer"></div>
-            <div className="photo-hero__shimmer"></div>
-            <div className="photo-hero__shimmer"></div>
-          </div>
+          <>
+            {console.log('PhotoHero: Rendering loading state')}
+            <div className="photo-hero__loading">
+              <div className="photo-hero__shimmer"></div>
+              <div className="photo-hero__shimmer"></div>
+              <div className="photo-hero__shimmer"></div>
+            </div>
+          </>
         ) : photos.length > 0 ? (
-          photos.map((photo, index) => {
-            console.log(`PhotoHero: Rendering photo ${index + 1}:`, photo.fileUrl);
-            return (
-              <div key={photo.fileId} className={`photo-hero__item photo-hero__item--${index + 1}`}>
-                <img 
-                  src={photo.fileUrl} 
-                  alt={`Photo by ${photo.mobileExpert}`}
-                  loading="lazy"
-                  onLoad={() => console.log(`PhotoHero: Image ${index + 1} loaded successfully`)}
-                  onError={(e) => console.error(`PhotoHero: Image ${index + 1} failed to load`, e)}
-                />
-              </div>
-            );
-          })
+          <>
+            {console.log('PhotoHero: Rendering photos grid, count:', photos.length)}
+            {photos.map((photo, index) => {
+              console.log(`PhotoHero: Rendering photo ${index + 1}:`, photo.fileUrl, photo);
+              return (
+                <div key={photo.fileId} className={`photo-hero__item photo-hero__item--${index + 1}`}>
+                  <img 
+                    src={photo.fileUrl} 
+                    alt={`Photo by ${photo.mobileExpert}`}
+                    onLoad={() => console.log(`PhotoHero: Image ${index + 1} loaded successfully`)}
+                    onError={(e) => console.error(`PhotoHero: Image ${index + 1} failed to load`, e)}
+                    style={{ border: '2px solid yellow' }}
+                  />
+                </div>
+              );
+            })}
+          </>
         ) : (
-          <div className="photo-hero__empty">
-            <div className="photo-hero__empty-icon">📸</div>
-            <p>Your photos will appear here</p>
-          </div>
+          <>
+            {console.log('PhotoHero: Rendering empty state')}
+            <div className="photo-hero__empty">
+              <div className="photo-hero__empty-icon">📸</div>
+              <p>Your photos will appear here</p>
+            </div>
+          </>
         )}
         <div className="photo-hero__overlay"></div>
       </div>
