@@ -11,9 +11,9 @@ const SPREADSHEET_ID = '1xuPzxV40q-i3CZbr6ghnVNJyjfYYHL1ZC4OzFVXHEdA';
 const DRIVE_FOLDER_ID = '1eQU0tIlrPS_b9hk01hac5FfgKoIiXR3F';
 
 // Sheet names
-const UPLOADS_SHEET = 'Uploads';
+const UPLOADS_SHEET = 'Photo Log';
 const ROSTER_SHEET = 'Roster';
-const PASSWORDS_SHEET = 'Passwords';
+const PASSWORDS_SHEET = 'Password';
 
 /**
  * Main entry point for all requests

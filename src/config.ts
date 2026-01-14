@@ -2,21 +2,20 @@
 // All data is stored in Google Sheets
 
 // Main metrics CSV (Traffic data tab)
-// Now includes District column: District, Store Name, Traffic, Submissions, ...
 // BACKUP SHEET: 1xuPzxV40q-i3CZbr6ghnVNJyjfYYHL1ZC4OzFVXHEdA
-export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1944745041&single=true&output=csv';
+export const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9pG5C2v4XhDWhXkvGqlWjHeyzOKcFzc5tQbp2GuwfiOLGOegdDIYVfE7g8UVNLCu6-tgKc5vVO5uI/pub?output=csv';
 
 // Roster CSV (Roster tab)
-// Format: District, Store Name, Mobile Expert Name (one row per mobile expert)
-export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1331432233&single=true&output=csv';
+// Format: Store Name, Mobile Expert Name (one row per mobile expert)
+export const ROSTER_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9pG5C2v4XhDWhXkvGqlWjHeyzOKcFzc5tQbp2GuwfiOLGOegdDIYVfE7g8UVNLCu6-tgKc5vVO5uI/pub?gid=1331432233&single=true&output=csv';
 
 // Passwords CSV (Passwords tab)
-// Format: District, Store Name, Password
-export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKqPPjPwlwwXBw7V-YJ_xKjMG1IKxwKPGtEHvTWXFdxPXUfgHbKHxL0kZSQ4qSQ/pub?gid=1351038140&single=true&output=csv';
+// Format: Store Name, Password
+export const PASSWORDS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT9pG5C2v4XhDWhXkvGqlWjHeyzOKcFzc5tQbp2GuwfiOLGOegdDIYVfE7g8UVNLCu6-tgKc5vVO5uI/pub?gid=1351038140&single=true&output=csv';
 
 // Google Apps Script Web App URL for writing to sheets
 // Deploy the Apps Script and paste the URL here
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxeHKODmImNFL0-UzmKrJD2O5mgQbyO-8if9Z50vj9IQKqfoSjz2gO4QauaWBNRLP3mtQ/exec';
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwirvXBchT8xS3NrVW3rCnzdbqJ73hWpbRagPqtHWXl1EdqK4TBstXoi5JZQhvHBaJvsA/exec';
 
 // District configuration
 export const DISTRICTS = ['West', 'South', 'North'] as const;
