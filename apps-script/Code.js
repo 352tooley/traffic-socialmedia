@@ -673,15 +673,33 @@ function uploadTeamPhoto(storeName, uploadedBy, photoData, fileName) {
 function uploadDMPhoto(photoData, fileName, uploadedBy) {
   try {
     const folder = getOrCreateFolder();
+    Logger.log('uploadDMPhoto: Folder found/created: ' + folder.getName());
 
     // Decode base64 photo data
     const decodedData = Utilities.base64Decode(photoData);
     const blob = Utilities.newBlob(decodedData, 'image/jpeg', fileName);
+    Logger.log('uploadDMPhoto: Blob created, size: ' + blob.getBytes().length);
 
     // Create file in Drive
     const file = folder.createFile(blob);
+    const fileId = file.getId();
+    Logger.log('uploadDMPhoto: File created with ID: ' + fileId);
+    
     file.setDescription('DM Photo by: ' + uploadedBy);
-    file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+    
+    // Try multiple sharing approaches
+    try {
+      file.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+      Logger.log('uploadDMPhoto: Sharing set to ANYONE');
+    } catch (shareError) {
+      Logger.log('uploadDMPhoto: Error setting ANYONE sharing: ' + shareError.toString());
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        Logger.log('uploadDMPhoto: Fallback to ANYONE_WITH_LINK');
+      } catch (shareError2) {
+        Logger.log('uploadDMPhoto: Both sharing methods failed: ' + shareError2.toString());
+      }
+    }
 
     // Get current date/time
     const now = new Date();
@@ -690,8 +708,8 @@ function uploadDMPhoto(photoData, fileName, uploadedBy) {
 
     // Log to Photo Log sheet
     const sheet = getOrCreatePhotoLogSheet();
-    const fileId = file.getId();
     const directUrl = getDirectImageUrl(fileId);
+    Logger.log('uploadDMPhoto: Direct URL: ' + directUrl);
     
     sheet.appendRow([
       'District',
